@@ -8,32 +8,59 @@ namespace Tomino.Model
     {
         private readonly Random _random = new();
         private readonly List<int> _pool = new();
-        private const int NumDuplicates = 4;
+        private readonly Deck _deck; // Deste referansý
+        private bool _hasPopulated = false;
+
+        public BalancedRandomPieceProvider(Deck deck)
+        {
+            _deck = deck;
+        }
 
         public Piece GetPiece()
         {
-            return AvailablePieces.All()[GetPopulatedPool().TakeFirst()];
+            var pool = GetPopulatedPool();
+            
+            // Eðer deste bittiyse null dön (Board bunu kontrol etmeli)
+            if (pool.Count == 0) return null;
+
+            return AvailablePieces.All()[pool.TakeFirst()];
         }
 
         public Piece GetNextPiece()
         {
-            return AvailablePieces.All()[GetPopulatedPool()[0]];
+            var pool = GetPopulatedPool();
+            if (pool.Count == 0) return null;
+
+            return AvailablePieces.All()[pool[0]];
         }
 
         private List<int> GetPopulatedPool()
         {
-            if (_pool.Count == 0)
+            // Sadece bir kez, destedeki mevcut sayýlara göre havuzu doldur
+            if (!_hasPopulated)
             {
                 PopulatePool();
+                _hasPopulated = true;
             }
             return _pool;
         }
 
         private void PopulatePool()
         {
-            for (var index = 0; index < AvailablePieces.All().Length; ++index)
+            var allAvailable = AvailablePieces.All();
+            
+            for (var index = 0; index < allAvailable.Length; ++index)
             {
-                _pool.Add(index, NumDuplicates);
+                PieceType type = allAvailable[index].Type;
+                
+                // Destedeki sayý kadar bu parçanýn index'ini havuzuna ekle
+                if (_deck.PieceCounts.TryGetValue(type, out int count))
+                {
+                    for (int j = 0; j < count; j++)
+                    {
+                        _pool.Add(index);
+                    }
+                }
             }
             _pool.Shuffle(_random);
         }

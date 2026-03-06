@@ -34,6 +34,7 @@ namespace Tomino.View
         public Color blockColor5 = new(240 / 255.0f, 0 / 255.0f, 130 / 255.0f, 1);
         public Color blockColor6 = new(200 / 255.0f, 10 / 255.0f, 150 / 255.0f, 1);
         public Color blockColor7 = new(110 / 255.0f, 80 / 255.0f, 220 / 255.0f, 1);
+        public Color blockColorPlus = new(0 / 255.0f, 255 / 255.0f, 100 / 255.0f, 1);
         public Color blockShadowColor = Color.white;
 
         [Space(10)]
@@ -65,7 +66,7 @@ namespace Tomino.View
 
         public Color[] BlockColors => new[]
         {
-            blockColor1, blockColor2, blockColor3, blockColor4, blockColor5, blockColor6, blockColor7
+            blockColor1, blockColor2, blockColor3, blockColor4, blockColor5, blockColor6, blockColor7, blockColorPlus
         };
 
         public Color GetColor(ThemeColorName colorName)

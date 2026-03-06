@@ -1,4 +1,7 @@
-﻿using Tomino.Model;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Tomino.Model;
 using Tomino.Shared;
 using UnityEngine;
 
@@ -30,6 +33,19 @@ namespace Tomino.View
 
         internal void Update()
         {
+            // GÜVENLİK KONTROLÜ 1: Board veya NextPiece null ise işlem yapma
+            if (_board == null || _board.NextPiece == null)
+            {
+                // Eğer daha önce bir parça çizildiyse ve artık parça yoksa ekranı temizle
+                if (_renderedPieceType != null)
+                {
+                    _blockViewPool?.DeactivateAll();
+                    _renderedPieceType = null;
+                }
+                return;
+            }
+
+            // GÜVENLİK KONTROLÜ 2: Aynı parçayı tekrar tekrar çizme
             if (_renderedPieceType != null && !_forceRender && _board.NextPiece.Type == _renderedPieceType) return;
 
             RenderPiece(_board.NextPiece);
@@ -44,6 +60,13 @@ namespace Tomino.View
 
         private void RenderPiece(Piece piece)
         {
+            // GÜVENLİK KONTROLÜ 3: Fonksiyona gelen parça null ise havuzu boşalt ve çık
+            if (piece == null)
+            {
+                _blockViewPool.DeactivateAll();
+                return;
+            }
+
             _blockViewPool.DeactivateAll();
 
             var blockSize = BlockSize(piece);
@@ -57,15 +80,19 @@ namespace Tomino.View
                 blockView.SetPosition(BlockPosition(block.Position, blockSize));
             }
 
-            var pieceBlocks = _blockViewPool.Items.First(piece.blocks.Length);
-            var xValues = pieceBlocks.Map(b => b.transform.localPosition.x);
-            var yValues = pieceBlocks.Map(b => b.transform.localPosition.y);
+            // Parça blokları listesini al
+            var pieceBlocks = _blockViewPool.Items.Take(piece.blocks.Length).ToList();
+            if (pieceBlocks.Count == 0) return;
+
+            var xValues = pieceBlocks.Select(b => b.transform.localPosition.x).ToList();
+            var yValues = pieceBlocks.Select(b => b.transform.localPosition.y).ToList();
 
             var halfBlockSize = blockSize / 2.0f;
-            var minX = Mathf.Min(xValues) - halfBlockSize;
-            var maxX = Mathf.Max(xValues) + halfBlockSize;
-            var minY = Mathf.Min(yValues) - halfBlockSize;
-            var maxY = Mathf.Max(yValues) + halfBlockSize;
+            var minX = xValues.Min() - halfBlockSize;
+            var maxX = xValues.Max() + halfBlockSize;
+            var minY = yValues.Min() - halfBlockSize;
+            var maxY = yValues.Max() + halfBlockSize;
+
             var width = maxX - minX;
             var height = maxY - minY;
             var offsetX = -width / 2.0f - minX;
@@ -84,6 +111,8 @@ namespace Tomino.View
 
         private float BlockSize(Piece piece)
         {
+            if (container == null || piece == null) return 0;
+
             var rect = container.rect;
             var width = rect.size.x;
             var height = rect.size.y;

@@ -8,15 +8,29 @@ namespace Tomino.Test.Editor
     public class BalancedRandomPieceProviderTests
     {
         [Test]
-        public void GeneratesRandomPiecesWithSimilarProbability()
+        public void GeneratesRandomPiecesFromDeckCorrectly()
         {
-            const int sampleSize = 1000;
-            var provider = new BalancedRandomPieceProvider();
+            // ADIM 1: Yeni Deck yapýsýný oluþturuyoruz.
+            var deck = new Deck();
+
+            // ADIM 2: Provider'a bu desteyi veriyoruz (Hataný bu çözer).
+            var provider = new BalancedRandomPieceProvider(deck);
+
             var pieceCount = new Dictionary<PieceType, int>();
 
-            for (var i = 0; i < sampleSize; i++)
+            // ADIM 3: Test miktarýný destedeki toplam kart sayýsýna çekiyoruz.
+            // 1000 yazarsak deste biter ve 'null' hatasý alýrýz.
+            int totalCardsInDeck = 0;
+            foreach (var count in deck.PieceCounts.Values) totalCardsInDeck += count;
+
+            for (var i = 0; i < totalCardsInDeck; i++)
             {
-                var pieceType = provider.GetPiece().Type;
+                var piece = provider.GetPiece();
+
+                // Deste bittiyse null gelebilir, kontrol edelim.
+                if (piece == null) break;
+
+                var pieceType = piece.Type;
 
                 if (!pieceCount.TryAdd(pieceType, 1))
                 {
@@ -24,11 +38,11 @@ namespace Tomino.Test.Editor
                 }
             }
 
-            var averageCount = sampleSize / (float)AvailablePieces.All().Length;
-            foreach (float count in pieceCount.Values)
+            // ADIM 4: Kontrol. Desteden her parçadan tam olarak 4 tane (NumDuplicates) gelmeli.
+            foreach (var type in deck.PieceCounts.Keys)
             {
-                var difference = (count - averageCount) / averageCount;
-                Assert.True(Math.Abs(difference) < 0.05f);
+                Assert.AreEqual(deck.PieceCounts[type], pieceCount[type],
+                    $"{type} tipi için beklenen sayý ile gelen sayý tutmuyor!");
             }
         }
     }

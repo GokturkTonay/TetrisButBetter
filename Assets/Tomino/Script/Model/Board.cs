@@ -4,57 +4,26 @@ using Tomino.Shared;
 
 namespace Tomino.Model
 {
-    /// <summary>
-    /// Contains collection of blocks placed on the board and allows for moving them within the
-    /// defined bounds.
-    /// </summary>
     public class Board
     {
-        /// <summary>
-        /// The width of the board.
-        /// </summary>
         public readonly int width;
-
-        /// <summary>
-        /// The height of the board.
-        /// </summary>
         public readonly int height;
 
-        /// <summary>
-        /// The collection of blocks placed on the board.
-        /// </summary>
         public List<Block> Blocks { get; } = new();
 
-        /// <summary>
-        /// The current falling piece.
-        /// </summary>
-        /// <value></value>
         public Piece Piece { get; private set; }
 
-        /// <summary>
-        /// The piece that will be added to the board when the current piece finishes falling.
-        /// </summary>
-        /// <returns></returns>
-        public Piece NextPiece => _pieceProvider.GetNextPiece();
+        // GÜVENLİK: _pieceProvider null ise veya GetNextPiece() null dönerse hata vermez.
+        public Piece NextPiece => _pieceProvider?.GetNextPiece();
 
         private readonly IPieceProvider _pieceProvider;
         private int Top => height - 1;
 
-        /// <summary>
-        /// Initializes board with specified size and a `BalancedPieceProvider`.
-        /// </summary>
-        /// <param name="width">The width of the board.</param>
-        /// <param name="height">The height of the board.</param>
-        public Board(int width, int height) : this(width, height, new BalancedRandomPieceProvider())
+        public Board(int width, int height)
+            : this(width, height, new BalancedRandomPieceProvider(new Deck()))
         {
         }
 
-        /// <summary>
-        /// Initializes board with specified size and piece provider.
-        /// </summary>
-        /// <param name="width">The width of the board.</param>
-        /// <param name="height">The height of the board.</param>
-        /// <param name="pieceProvider">The piece provider.</param>
         public Board(int width, int height, IPieceProvider pieceProvider)
         {
             this.width = width;
@@ -62,10 +31,6 @@ namespace Tomino.Model
             _pieceProvider = pieceProvider;
         }
 
-        /// <summary>
-        /// Determines whether blocks on the board collide with board bounds or with themselves.
-        /// </summary>
-        /// <returns>true if collisions were detected; false otherwise.</returns>
         public bool HasCollisions()
         {
             return HasBoardCollisions() || HasBlockCollisions();
@@ -94,18 +59,21 @@ namespace Tomino.Model
         public override int GetHashCode()
         {
             return (from block in Blocks
-                let row = block.Position.Row
-                let column = block.Position.Column
-                let offset = width * height * (int)block.Type
-                select offset + row * width + column).Sum();
+                    let row = block.Position.Row
+                    let column = block.Position.Column
+                    let offset = width * height * (int)block.Type
+                    select offset + row * width + column).Sum();
         }
 
-        /// <summary>
-        /// Adds new piece.
-        /// </summary>
         public void AddPiece()
         {
             Piece = _pieceProvider.GetPiece();
+
+            if (Piece == null)
+            {
+                UnityEngine.Debug.Log("Deste bitti! Yeni parça üretilemiyor.");
+                return;
+            }
 
             var offsetRow = Top - Piece.Top;
             var offsetCol = (width - Piece.Width) / 2;
@@ -118,46 +86,29 @@ namespace Tomino.Model
             Blocks.AddRange(Piece.blocks);
         }
 
-        /// <summary>
-        /// Returns position of the piece shadow which is the final piece position if it starts
-        /// falling.
-        /// </summary>
-        /// <returns>Collection of piece blocks positions.</returns>
         public ICollection<Position> GetPieceShadow()
         {
+            // HATA DÜZELTME: Eğer aktif bir parça yoksa gölge hesaplama.
+            if (Piece == null) return new List<Position>();
+
             var positions = Piece.GetPositions();
+
             _ = FallPiece();
             var shadowPositions = Piece.GetPositions().Values.Map(p => p);
+
             RestoreSavedPiecePosition(positions);
             return shadowPositions;
         }
 
-        /// <summary>
-        /// Moves the current piece left by 1 column.
-        /// </summary>
-        public bool MovePieceLeft()
-        {
-            return MovePiece(0, -1);
-        }
-
-        /// <summary>
-        /// Moves the current piece right by 1 column.
-        /// </summary>
-        public bool MovePieceRight()
-        {
-            return MovePiece(0, 1);
-        }
-
-        /// <summary>
-        /// Moves the current piece down by 1 row.
-        /// </summary>
-        public bool MovePieceDown()
-        {
-            return MovePiece(-1, 0);
-        }
+        public bool MovePieceLeft() => MovePiece(0, -1);
+        public bool MovePieceRight() => MovePiece(0, 1);
+        public bool MovePieceDown() => MovePiece(-1, 0);
 
         private bool MovePiece(int rowOffset, int columnOffset)
         {
+            // HATA DÜZELTME: Eğer parça null ise hareket ettirmeye çalışma.
+            if (Piece == null) return false;
+
             foreach (var block in Piece.blocks)
             {
                 block.MoveBy(rowOffset, columnOffset);
@@ -173,15 +124,10 @@ namespace Tomino.Model
             return false;
         }
 
-        /// <summary>
-        /// Rotates the current piece clockwise.
-        /// </summary>
         public bool RotatePiece()
         {
-            if (!Piece.canRotate)
-            {
-                return false;
-            }
+            // HATA DÜZELTME: Parça yoksa veya dönmüyorsa işlem yapma.
+            if (Piece == null || !Piece.canRotate) return false;
 
             var piecePosition = Piece.GetPositions();
             var offset = Piece.blocks[0].Position;
@@ -205,7 +151,6 @@ namespace Tomino.Model
             foreach (var offset in columnOffsets)
             {
                 _ = MovePiece(0, offset);
-
                 if (HasCollisions())
                 {
                     _ = MovePiece(0, -offset);
@@ -215,38 +160,29 @@ namespace Tomino.Model
                     return true;
                 }
             }
-
             return false;
         }
 
         private void RestoreSavedPiecePosition(IReadOnlyDictionary<Block, Position> piecePosition)
         {
+            if (Piece == null) return;
             foreach (var block in Piece.blocks)
             {
                 block.MoveTo(piecePosition[block]);
             }
         }
 
-        /// <summary>
-        /// Immediately moves the current piece to the lowest possible row.
-        /// </summary>
-        /// <returns>Number of rows the piece has been moved down.</returns>
         public int FallPiece()
         {
+            if (Piece == null) return 0;
             var rowsCount = 0;
             while (MovePieceDown())
             {
                 rowsCount++;
             }
-
             return rowsCount;
         }
 
-        /// <summary>
-        /// Removes blocks in rows that hold maximum number of possible blocks (= board width). All
-        /// blocks placed above the removed row are moved 1 row down.
-        /// </summary>
-        /// <returns></returns>
         public int RemoveFullRows()
         {
             var rowsRemoved = 0;
@@ -259,17 +195,10 @@ namespace Tomino.Model
                 MoveDownBlocksBelowRow(row);
                 rowsRemoved += 1;
             }
-
             return rowsRemoved;
         }
 
-        /// <summary>
-        /// Removes all blocks from the board.
-        /// </summary>
-        public void RemoveAllBlocks()
-        {
-            Blocks.Clear();
-        }
+        public void RemoveAllBlocks() => Blocks.Clear();
 
         private List<Block> GetBlocksFromRow(int row)
         {
