@@ -10,6 +10,7 @@ namespace Tomino.Model
         private readonly List<int> _pool = new();
         private readonly Deck _deck; // Deste referansý
         private bool _hasPopulated = false;
+        public Deck Deck => _deck;
 
         public BalancedRandomPieceProvider(Deck deck)
         {

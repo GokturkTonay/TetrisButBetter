@@ -44,6 +44,8 @@ namespace Tomino
 
             gameConfig.scoreView.game = _game;
             gameConfig.levelView.game = _game;
+
+            gameConfig.levelView.board = board;
         }
 
         public void OnPauseButtonTap()

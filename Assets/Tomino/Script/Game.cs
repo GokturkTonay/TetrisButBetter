@@ -1,5 +1,7 @@
 using Tomino.Input;
 using Tomino.Model;
+using UnityEngine;
+using System.Collections;
 
 namespace Tomino
 {
@@ -165,7 +167,7 @@ namespace Tomino
                     if (_board.MovePieceDown())
                     {
                         pieceMoved = true;
-                        Score.PieceMovedDown();
+                        //Score.PieceMovedDown();
                     }
                     else
                     {
@@ -183,7 +185,8 @@ namespace Tomino
                     break;
 
                 case PlayerAction.Fall:
-                    Score.PieceFinishedFalling(_board.FallPiece());
+                    _board.FallPiece();
+
                     ResetElapsedTime();
                     PieceFinishedFalling();
                     break;
@@ -197,12 +200,25 @@ namespace Tomino
         private void PieceFinishedFalling()
         {
             PieceFinishedFallingEvent();
-            var rowsCount = _board.RemoveFullRows();
-            Score.RowsCleared(rowsCount);
-            Level.RowsCleared(rowsCount);
+
+            var (rowsCount, totalScore) = _board.RemoveFullRows();
+
+            if (rowsCount > 0)
+            {
+                int blockCount = totalScore / rowsCount;
+
+                var levelView = UnityEngine.Object.FindFirstObjectByType<Tomino.View.LevelView>();
+
+                if (levelView != null)
+                {
+                    levelView.ShowPointAnimation(blockCount, rowsCount);
+                }
+
+                Level.RowsCleared(rowsCount);
+            }
+
             AddPiece();
         }
-
         private void ResetElapsedTime()
         {
             _elapsedTime = 0;

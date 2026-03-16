@@ -29,5 +29,10 @@ namespace Tomino.Model
         {
             Value++;
         }
+
+        public void Add(int points)
+        {
+            Value += points;
+        }
     }
 }
