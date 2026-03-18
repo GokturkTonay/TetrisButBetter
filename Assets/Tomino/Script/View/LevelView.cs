@@ -14,6 +14,7 @@ namespace Tomino.View
         public TextMeshProUGUI targetScoreText;
         public TextMeshProUGUI pointDisplay;
         public TextMeshProUGUI deckCountText;
+        public MenuManager menuManager;
 
         public Game game;
         public Board board;
@@ -65,6 +66,22 @@ namespace Tomino.View
             game.Score.Add(finalPointsForThisTurn);
 
             pointDisplay.gameObject.SetActive(false);
+
+            if (menuManager != null)
+            {
+                Debug.Log("Skor Kontrolü Yapılıyor... Mevcut Skor: " + game.Score.Value + " / Hedef: " + game.Level.TargetScore);
+
+                if (game.Score.Value >= game.Level.TargetScore)
+                {
+                    Debug.Log("Hedef aşıldı! Mağazaya geçiliyor.");
+                    menuManager.CheckScoreAndTransition(game, game.Level.TargetScore);
+                }
+            }
+            else
+            {
+                Debug.LogError("MenuManager, LevelView'a atanmamış!");
+            }
+
             game.Resume();
         }
     }

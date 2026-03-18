@@ -21,7 +21,6 @@ namespace Tomino
         internal void Awake()
         {
             Application.targetFrameRate = 60;
-
             HandlePlayerSettings();
             Settings.changedEvent += HandlePlayerSettings;
         }
@@ -29,23 +28,23 @@ namespace Tomino
         internal void Start()
         {
             Board board = new(10, 20);
-
             gameConfig.boardView.SetBoard(board);
             gameConfig.nextPieceView.SetBoard(board);
-
             _universalInput = new UniversalInput(new KeyboardInput(), gameConfig.boardView.touchInput);
 
             _game = new Game(board, _universalInput);
+
+            // --- BURASI ÇOK ÖNEMLİ: Referansları MenuManager'a bağla ---
+            gameConfig.levelView.game = _game;
+            gameConfig.levelView.board = board;
+            gameConfig.scoreView.game = _game;
+            // -------------------------------------------------------
+
             _game.FinishedEvent += OnGameFinished;
             _game.PieceFinishedFallingEvent += audioPlayer.PlayPieceDropClip;
             _game.PieceRotatedEvent += audioPlayer.PlayPieceRotateClip;
             _game.PieceMovedEvent += audioPlayer.PlayPieceMoveClip;
             _game.Start();
-
-            gameConfig.scoreView.game = _game;
-            gameConfig.levelView.game = _game;
-
-            gameConfig.levelView.board = board;
         }
 
         public void OnPauseButtonTap()
@@ -54,25 +53,10 @@ namespace Tomino
             ShowPauseView();
         }
 
-        public void OnMoveLeftButtonTap()
-        {
-            _game.SetNextAction(PlayerAction.MoveLeft);
-        }
-
-        public void OnMoveRightButtonTap()
-        {
-            _game.SetNextAction(PlayerAction.MoveRight);
-        }
-
-        public void OnMoveDownButtonTap()
-        {
-            _game.SetNextAction(PlayerAction.MoveDown);
-        }
-
-        public void OnRotateButtonTap()
-        {
-            _game.SetNextAction(PlayerAction.Rotate);
-        }
+        public void OnMoveLeftButtonTap() => _game.SetNextAction(PlayerAction.MoveLeft);
+        public void OnMoveRightButtonTap() => _game.SetNextAction(PlayerAction.MoveRight);
+        public void OnMoveDownButtonTap() => _game.SetNextAction(PlayerAction.MoveDown);
+        public void OnRotateButtonTap() => _game.SetNextAction(PlayerAction.Rotate);
 
         private void OnGameFinished()
         {
@@ -81,10 +65,7 @@ namespace Tomino
             alertView.Show();
         }
 
-        internal void Update()
-        {
-            _game.Update(Time.deltaTime);
-        }
+        internal void Update() => _game.Update(Time.deltaTime);
 
         private void ShowPauseView()
         {
@@ -95,10 +76,7 @@ namespace Tomino
             alertView.Show();
         }
 
-        private void ShowSettingsView()
-        {
-            settingsView.Show(ShowPauseView);
-        }
+        private void ShowSettingsView() => settingsView.Show(ShowPauseView);
 
         private void HandlePlayerSettings()
         {

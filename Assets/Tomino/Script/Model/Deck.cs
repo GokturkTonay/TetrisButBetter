@@ -31,5 +31,17 @@ namespace Tomino.Model
                 PieceCounts[type]--;
             }
         }
+
+        public void Reset()
+        {
+            PieceCounts[PieceType.I] = 4;
+            PieceCounts[PieceType.J] = 4;
+            PieceCounts[PieceType.L] = 4;
+            PieceCounts[PieceType.O] = 4;
+            PieceCounts[PieceType.S] = 4;
+            PieceCounts[PieceType.T] = 4;
+            PieceCounts[PieceType.Z] = 4;
+            PieceCounts[PieceType.Plus] = 1;
+        }
     }
 }

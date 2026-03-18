@@ -59,7 +59,7 @@ namespace Tomino.Model
 
         private bool HasBlockCollisions()
         {
-            // Map metodu projenize özel bir genişletme metodudur, mevcut yapınızı korur.
+            // Orijinal Map ve HashSet yapısı
             var allPositions = Blocks.Map(block => block.Position);
             var uniquePositions = new HashSet<Position>(allPositions);
             return allPositions.Length != uniquePositions.Count;
@@ -179,6 +179,14 @@ namespace Tomino.Model
             foreach (var block in Blocks.Where(block => block.Position.Row > row))
             {
                 block.MoveBy(-1, 0);
+            }
+        }
+
+        public void ResetDeck()
+        {
+            if (_pieceProvider is BalancedRandomPieceProvider provider)
+            {
+                provider.Reset();
             }
         }
     }

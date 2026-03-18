@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using Tomino.Model;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Pool;
+using Tomino.Model; // BU SATIRI EKLEDİK: LocalizationProvider'ı tanıması için gerekli
 using Text = UnityEngine.UI.Text;
 
 namespace Tomino.View
@@ -15,22 +15,17 @@ namespace Tomino.View
         public LocalizationProvider localizationProvider;
 
         private ObjectPool<AlertButtonView> _buttonPool;
-        private readonly List<AlertButtonView> _buttons = new ();
+        private readonly List<AlertButtonView> _buttons = new();
 
-        internal void Awake()
-        {
-            _buttonPool = new ObjectPool<AlertButtonView>(CreateAlertButton, OnGetAlertButton, OnReleaseAlertButton);
-            Hide();
-        }
+        private ObjectPool<AlertButtonView> ButtonPool => _buttonPool ??= new ObjectPool<AlertButtonView>(CreateAlertButton, OnGetAlertButton, OnReleaseAlertButton);
 
-        public void SetTitle(string textID)
-        {
-            titleText.text = localizationProvider.currentLocalization.GetLocalizedTextForID(textID);
-        }
+        internal void Awake() => Hide();
+
+        public void SetTitle(string textID) => titleText.text = localizationProvider.currentLocalization.GetLocalizedTextForID(textID);
 
         public void AddButton(string textID, UnityAction onClickAction, UnityAction pointerDownAction)
         {
-            var alertButton = _buttonPool.Get();
+            var alertButton = ButtonPool.Get();
             alertButton.PointerHandler.onPointerDown.AddListener(pointerDownAction);
             alertButton.Button.onClick.AddListener(onClickAction);
             alertButton.Button.onClick.AddListener(Hide);
@@ -38,14 +33,11 @@ namespace Tomino.View
             alertButton.RectTransform.SetSiblingIndex(buttonsContainer.childCount - 1);
         }
 
-        public void Show()
-        {
-            gameObject.SetActive(true);
-        }
+        public void Show() => gameObject.SetActive(true);
 
-        private void Hide()
+        public void Hide()
         {
-            _buttons.ForEach(_buttonPool.Release);
+            _buttons.ForEach(b => ButtonPool.Release(b));
             _buttons.Clear();
             gameObject.SetActive(false);
         }
@@ -53,21 +45,14 @@ namespace Tomino.View
         private AlertButtonView CreateAlertButton()
         {
             var instance = Instantiate(buttonPrefab);
-            instance.SetActive(false);
-
             var button = instance.GetComponent<AlertButtonView>();
             button.RectTransform.SetParent(buttonsContainer, false);
-
+            instance.SetActive(false);
             return button;
         }
 
-        private void OnGetAlertButton(AlertButtonView button)
-        {
-            button.gameObject.SetActive(true);
-            _buttons.Add(button);
-        }
-
-        private static void OnReleaseAlertButton(AlertButtonView button)
+        private void OnGetAlertButton(AlertButtonView button) { button.gameObject.SetActive(true); _buttons.Add(button); }
+        private void OnReleaseAlertButton(AlertButtonView button)
         {
             button.Button.onClick.RemoveAllListeners();
             button.PointerHandler.onPointerDown.RemoveAllListeners();

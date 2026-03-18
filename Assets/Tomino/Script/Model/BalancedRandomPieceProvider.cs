@@ -8,8 +8,9 @@ namespace Tomino.Model
     {
         private readonly Random _random = new();
         private readonly List<int> _pool = new();
-        private readonly Deck _deck; // Deste referansý
+        private readonly Deck _deck;
         private bool _hasPopulated = false;
+
         public Deck Deck => _deck;
 
         public BalancedRandomPieceProvider(Deck deck)
@@ -20,8 +21,7 @@ namespace Tomino.Model
         public Piece GetPiece()
         {
             var pool = GetPopulatedPool();
-            
-            // Eðer deste bittiyse null dön (Board bunu kontrol etmeli)
+
             if (pool.Count == 0) return null;
 
             return AvailablePieces.All()[pool.TakeFirst()];
@@ -35,9 +35,16 @@ namespace Tomino.Model
             return AvailablePieces.All()[pool[0]];
         }
 
+        // YENÝ: Desteyi ve havuzu tamamen sýfýrlayan metod
+        public void Reset()
+        {
+            _deck.Reset();
+            _pool.Clear(); // KRÝTÝK: Eski havuzu tamamen temizle
+            _hasPopulated = false; // GetPopulatedPool'un tekrar çalýþmasýný saðlar
+        }
+
         private List<int> GetPopulatedPool()
         {
-            // Sadece bir kez, destedeki mevcut sayýlara göre havuzu doldur
             if (!_hasPopulated)
             {
                 PopulatePool();
@@ -48,13 +55,13 @@ namespace Tomino.Model
 
         private void PopulatePool()
         {
+            _pool.Clear(); // Önce havuzu temizle
             var allAvailable = AvailablePieces.All();
-            
+
             for (var index = 0; index < allAvailable.Length; ++index)
             {
                 PieceType type = allAvailable[index].Type;
-                
-                // Destedeki sayý kadar bu parçanýn index'ini havuzuna ekle
+
                 if (_deck.PieceCounts.TryGetValue(type, out int count))
                 {
                     for (int j = 0; j < count; j++)

@@ -201,12 +201,12 @@ namespace Tomino
         {
             PieceFinishedFallingEvent();
 
+            // 1. SATIRLARI SÝL VE PUANI HESAPLA
             var (rowsCount, totalScore) = _board.RemoveFullRows();
 
             if (rowsCount > 0)
             {
                 int blockCount = totalScore / rowsCount;
-
                 var levelView = UnityEngine.Object.FindFirstObjectByType<Tomino.View.LevelView>();
 
                 if (levelView != null)
@@ -217,7 +217,16 @@ namespace Tomino
                 Level.RowsCleared(rowsCount);
             }
 
-            AddPiece();
+            var menuManager = UnityEngine.Object.FindFirstObjectByType<MenuManager>();
+            if (menuManager != null)
+            {
+                menuManager.CheckScoreAndTransition(this, Level.TargetScore);
+            }
+
+            if (_isPlaying)
+            {
+                AddPiece();
+            }
         }
         private void ResetElapsedTime()
         {
