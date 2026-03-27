@@ -1,18 +1,14 @@
-﻿using Tomino.Input;
+using Tomino.Input;
 using Tomino.Model;
 using Tomino.Shared;
 using UnityEngine;
+using System.Linq;
 
 namespace Tomino.View
 {
     public class BoardView : MonoBehaviour
     {
-        private enum Layer
-        {
-            Blocks,
-            PieceShadow
-        }
-
+        private enum Layer { Blocks, PieceShadow }
         public GameObject blockPrefab;
         public Sprite blockSprite;
         public ThemeProvider themeProvider;
@@ -28,8 +24,19 @@ namespace Tomino.View
         public void SetBoard(Board board)
         {
             _gameBoard = board;
-            var size = board.width * board.height + 10;
-            _blockViewPool = new GameObjectPool<BlockView>(blockPrefab, size, gameObject);
+            _blockViewPool = new GameObjectPool<BlockView>(blockPrefab, board.width * board.height + 20, gameObject);
+            _forceRender = true;
+        }
+
+        internal void Update()
+        {
+            if (_gameBoard == null) return;
+            touchInput.blockSize = BlockSize();
+            var hash = _gameBoard.GetHashCode();
+            if (!_forceRender && hash == _renderedBoardHash) return;
+            RenderGameBoard();
+            _renderedBoardHash = hash;
+            _forceRender = false;
         }
 
         private void RenderGameBoard()
@@ -41,18 +48,27 @@ namespace Tomino.View
 
         private void RenderBlocks()
         {
+            bool isBomb = _gameBoard.Piece != null && _gameBoard.Piece.IsBomb;
             foreach (var block in _gameBoard.Blocks)
             {
-                RenderBlock(blockSprite, block.Position, BlockColor(block.Type), Layer.Blocks);
+                Color colorToRender = BlockColor(block.Type);
+                if (isBomb)
+                {
+                    foreach (var b in _gameBoard.Piece.blocks)
+                    {
+                        if (ReferenceEquals(b, block)) { colorToRender = Color.black; break; }
+                    }
+                }
+                RenderBlock(blockSprite, block.Position, colorToRender, Layer.Blocks);
             }
         }
 
         private void RenderPieceShadow()
         {
+            if (_gameBoard.Piece == null) return;
+            Color shadowColor = _gameBoard.Piece.IsBomb ? new Color(0,0,0,0.4f) : themeProvider.currentTheme.blockShadowColor;
             foreach (var position in _gameBoard.GetPieceShadow())
-            {
-                RenderBlock(shadowBlockSprite, position, themeProvider.currentTheme.blockShadowColor, Layer.PieceShadow);
-            }
+                RenderBlock(shadowBlockSprite, position, shadowColor, Layer.PieceShadow);
         }
 
         private void RenderBlock(Sprite sprite, Position position, Color color, Layer layer)
@@ -64,53 +80,10 @@ namespace Tomino.View
             view.SetPosition(BlockPosition(position.Row, position.Column, layer));
         }
 
-        internal void Awake()
-        {
-            _rectTransform = GetComponent<RectTransform>();
-            Settings.changedEvent += () => _forceRender = true;
-        }
-
-        internal void Update()
-        {
-            touchInput.blockSize = BlockSize();
-
-            var hash = _gameBoard.GetHashCode();
-            if (!_forceRender && hash == _renderedBoardHash) return;
-
-            RenderGameBoard();
-            _renderedBoardHash = hash;
-            _forceRender = false;
-        }
-
-        internal void OnRectTransformDimensionsChange()
-        {
-            _forceRender = true;
-        }
-
-        private Vector3 BlockPosition(int row, int column, Layer layer)
-        {
-            var size = BlockSize();
-            var position = new Vector3(column * size, row * size, (float)layer);
-            var offset = new Vector3(size / 2, size / 2, 0);
-            return position + offset - PivotOffset();
-        }
-
-        private float BlockSize()
-        {
-            var boardWidth = _rectTransform.rect.size.x;
-            return boardWidth / _gameBoard.width;
-        }
-
-        private Color BlockColor(PieceType type)
-        {
-            return themeProvider.currentTheme.BlockColors[(int)type];
-        }
-
-        private Vector3 PivotOffset()
-        {
-            var pivot = _rectTransform.pivot;
-            var boardSize = _rectTransform.rect.size;
-            return new Vector3(boardSize.x * pivot.x, boardSize.y * pivot.y);
-        }
+        internal void Awake() { _rectTransform = GetComponent<RectTransform>(); Settings.changedEvent += () => _forceRender = true; }
+        private Vector3 BlockPosition(int r, int c, Layer l) => new Vector3(c*BlockSize(), r*BlockSize(), (float)l) + new Vector3(BlockSize()/2, BlockSize()/2, 0) - PivotOffset();
+        private float BlockSize() => _rectTransform.rect.size.x / _gameBoard.width;
+        private Color BlockColor(PieceType t) => themeProvider.currentTheme.BlockColors[(int)t];
+        private Vector3 PivotOffset() => new Vector3(_rectTransform.rect.size.x * _rectTransform.pivot.x, _rectTransform.rect.size.y * _rectTransform.pivot.y);
     }
 }

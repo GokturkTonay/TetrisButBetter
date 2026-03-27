@@ -1,236 +1,103 @@
-using Tomino.Input;
 using Tomino.Model;
+using Tomino.Input; 
 using UnityEngine;
 using System.Collections;
 
 namespace Tomino
 {
-    /// <summary>
-    /// Controls the game logic by handling user input and updating the board state.
-    /// </summary>
     public class Game
     {
         public delegate void GameEventHandler();
-
-        /// <summary>
-        /// The event triggered when the game is finished.
-        /// </summary>
         public event GameEventHandler FinishedEvent = delegate { };
-
-        /// <summary>
-        /// The event triggered when the piece is moved.
-        /// </summary>
         public event GameEventHandler PieceMovedEvent = delegate { };
-
-        /// <summary>
-        /// The event triggered when the piece is rotated.
-        /// </summary>
         public event GameEventHandler PieceRotatedEvent = delegate { };
-
-        /// <summary>
-        /// The event triggered when the piece finishes falling.
-        /// </summary>
         public event GameEventHandler PieceFinishedFallingEvent = delegate { };
 
-        /// <summary>
-        /// The current score.
-        /// </summary>
         public Score Score { get; private set; }
-
-        /// <summary>
-        /// The current level.
-        /// </summary>
         public Level Level { get; private set; }
-
         private readonly Board _board;
         private readonly IPlayerInput _input;
-
-        private PlayerAction? _nextAction;
         private float _elapsedTime;
         private bool _isPlaying;
+        private bool _isExploding = false; 
 
-        /// <summary>
-        /// Creates a game with specified board and input.
-        /// </summary>
-        /// <param name="board">The board on which the blocks will be placed.</param>
-        /// <param name="input">The input used for pooling player events.</param>
-        public Game(Board board, IPlayerInput input)
+        public Game(Board b, IPlayerInput i) { _board = b; _input = i; PieceFinishedFallingEvent += i.Cancel; }
+
+        public void Start() { _isPlaying = true; Score = new Score(); Level = new Level(); _board.RemoveAllBlocks(); AddPiece(); }
+        public void Pause() => _isPlaying = false;
+        public void Resume() => _isPlaying = true;
+       public void SetNextAction(PlayerAction a) 
+{ 
+    if (_input is Tomino.Input.TouchInput ti) 
+    {
+        ti.SetNextAction(a); 
+    }
+}
+
+        public void AddPiece() { _board.AddPiece(); if (_board.HasCollisions()) { _isPlaying = false; FinishedEvent(); } }
+
+        public void Update(float dt)
         {
-            _board = board;
-            _input = input;
-            PieceFinishedFallingEvent += input.Cancel;
-        }
-
-        /// <summary>
-        /// Starts the game.
-        /// </summary>
-        public void Start()
-        {
-            _isPlaying = true;
-            _elapsedTime = 0;
-            Score = new Score();
-            Level = new Level();
-            _board.RemoveAllBlocks();
-            AddPiece();
-        }
-
-        /// <summary>
-        /// Resumes paused game.
-        /// </summary>
-        public void Resume()
-        {
-            _isPlaying = true;
-        }
-
-        /// <summary>
-        /// Pauses started game.
-        /// </summary>
-        public void Pause()
-        {
-            _isPlaying = false;
-        }
-
-        /// <summary>
-        /// Sets the player action that the game should process in the next update.
-        /// </summary>
-        /// <param name="action">The next player action to process.</param>
-        public void SetNextAction(PlayerAction action)
-        {
-            _nextAction = action;
-        }
-
-        private void AddPiece()
-        {
-            _board.AddPiece();
-            if (!_board.HasCollisions()) return;
-
-            _isPlaying = false;
-            FinishedEvent();
-        }
-
-        /// <summary>
-        /// Updates the game by processing user input.
-        /// </summary>
-        /// <param name="deltaTime"></param>
-        public void Update(float deltaTime)
-        {
-            if (!_isPlaying)
-            {
-                return;
-            }
-
+            if (!_isPlaying || _isExploding) return;
             _input.Update();
-
-            var action = _input?.GetPlayerAction();
-            if (action.HasValue)
-            {
-                HandlePlayerAction(action.Value);
-            }
-            else if (_nextAction.HasValue)
-            {
-                HandlePlayerAction(_nextAction.Value);
-                _nextAction = null;
-            }
-            else
-            {
-                HandleAutomaticPieceFalling(deltaTime);
-            }
+            var action = _input.GetPlayerAction();
+            if (action.HasValue) HandlePlayerAction(action.Value);
+            else HandleAutomaticFalling(dt);
         }
 
-        private void HandleAutomaticPieceFalling(float deltaTime)
+        private void HandleAutomaticFalling(float dt)
         {
-            _elapsedTime += deltaTime;
-            if (!(_elapsedTime >= Level.FallDelay)) return;
-
-            if (!_board.MovePieceDown())
-            {
-                PieceFinishedFalling();
-            }
-            ResetElapsedTime();
+            _elapsedTime += dt;
+            if (_elapsedTime < Level.FallDelay) return;
+            if (!_board.MovePieceDown()) PieceFinishedFalling();
+            _elapsedTime = 0;
         }
 
-        private void HandlePlayerAction(PlayerAction action)
+        private void HandlePlayerAction(PlayerAction a)
         {
-            var pieceMoved = false;
-            switch (action)
-            {
-                case PlayerAction.MoveLeft:
-                    pieceMoved = _board.MovePieceLeft();
-                    break;
-
-                case PlayerAction.MoveRight:
-                    pieceMoved = _board.MovePieceRight();
-                    break;
-
-                case PlayerAction.MoveDown:
-                    ResetElapsedTime();
-                    if (_board.MovePieceDown())
-                    {
-                        pieceMoved = true;
-                        //Score.PieceMovedDown();
-                    }
-                    else
-                    {
-                        PieceFinishedFalling();
-                    }
-                    break;
-
-                case PlayerAction.Rotate:
-                    var didRotate = _board.RotatePiece();
-                    if (didRotate)
-                    {
-                        PieceRotatedEvent();
-                    }
-
-                    break;
-
-                case PlayerAction.Fall:
-                    _board.FallPiece();
-
-                    ResetElapsedTime();
-                    PieceFinishedFalling();
-                    break;
-            }
-            if (pieceMoved)
-            {
-                PieceMovedEvent();
-            }
+            bool moved = false;
+            if (a == PlayerAction.MoveLeft) moved = _board.MovePieceLeft();
+            else if (a == PlayerAction.MoveRight) moved = _board.MovePieceRight();
+            else if (a == PlayerAction.MoveDown) { if (_board.MovePieceDown()) moved = true; else PieceFinishedFalling(); _elapsedTime = 0; }
+            else if (a == PlayerAction.Rotate) { if (_board.RotatePiece()) PieceRotatedEvent(); }
+            else if (a == PlayerAction.Fall) { _board.FallPiece(); PieceFinishedFalling(); _elapsedTime = 0; }
+            if (moved) PieceMovedEvent();
         }
 
         private void PieceFinishedFalling()
         {
             PieceFinishedFallingEvent();
-
-            // 1. SATIRLARI SÝL VE PUANI HESAPLA
-            var (rowsCount, totalScore) = _board.RemoveFullRows();
-
-            if (rowsCount > 0)
-            {
-                int blockCount = totalScore / rowsCount;
-                var levelView = UnityEngine.Object.FindFirstObjectByType<Tomino.View.LevelView>();
-
-                if (levelView != null)
-                {
-                    levelView.ShowPointAnimation(blockCount, rowsCount);
-                }
-
-                Level.RowsCleared(rowsCount);
-            }
-
-            var menuManager = UnityEngine.Object.FindFirstObjectByType<MenuManager>();
-            if (menuManager != null)
-            {
-                menuManager.CheckScoreAndTransition(this, Level.TargetScore);
-            }
-
-            if (_isPlaying)
-            {
-                AddPiece();
-            }
+            if (_board.Piece != null && _board.Piece.IsBomb) HandleBombExplosion();
+            else HandleNormalRowClear();
         }
-        private void ResetElapsedTime()
+
+        private void HandleBombExplosion()
         {
-            _elapsedTime = 0;
+            if (_isExploding) return;
+            _isExploding = true;
+            this.Pause();
+            var (count, _) = _board.ExplodeContactBomb(_board.Piece);
+            _board.Piece = null; 
+            var mm = Object.FindFirstObjectByType<MenuManager>();
+            if (mm != null) mm.StartCoroutine(SafeBombSequence(count));
+        }
+
+        private IEnumerator SafeBombSequence(int c) {
+            var mm = Object.FindFirstObjectByType<MenuManager>();
+            if (mm != null) yield return mm.StartCoroutine(mm.CalculateMultiplierSequence(this, c));
+            _isExploding = false;
+            if (_isPlaying) AddPiece();
+        }
+
+        private void HandleNormalRowClear()
+        {
+            var (rows, _) = _board.RemoveFullRows();
+            if (rows > 0) {
+                this.Pause();
+                var mm = Object.FindFirstObjectByType<MenuManager>();
+                if (mm != null) mm.StartCoroutine(mm.CalculateMultiplierSequence(this, rows));
+                Level.RowsCleared(rows);
+            } else if (_isPlaying) AddPiece();
         }
     }
 }

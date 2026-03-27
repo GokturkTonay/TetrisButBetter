@@ -11,6 +11,9 @@ namespace Tomino.Model
         private readonly Deck _deck;
         private bool _hasPopulated = false;
 
+        // YENİ: Sıradaki taşın bomba olup olmayacağını tutan bayrak
+        private bool _nextIsBomb = false;
+
         public Deck Deck => _deck;
 
         public BalancedRandomPieceProvider(Deck deck)
@@ -24,7 +27,29 @@ namespace Tomino.Model
 
             if (pool.Count == 0) return null;
 
-            return AvailablePieces.All()[pool.TakeFirst()];
+            int pieceIndex = pool.TakeFirst();
+            Piece standardPiece = AvailablePieces.All()[pieceIndex];
+
+            Piece pieceToReturn;
+
+            // Eğer bu taş için bomba kararı verildiyse, taşı bombaya çevir
+            if (_nextIsBomb)
+            {
+                _deck.RemoveBomb(); // Bombayı kullandığımız için desteden düşüyoruz
+                
+                // Orijinal taşın özelliklerini kopyalayıp yepyeni bir "Bomba" taşı üretiyoruz
+                pieceToReturn = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
+                pieceToReturn.IsBomb = true; // Bomba bayrağını aç
+            }
+            else
+            {
+                pieceToReturn = standardPiece;
+            }
+
+            // Bir sonraki taş için zar at (Eğer destede bomba varsa %20 ihtimalle bomba gelsin)
+            _nextIsBomb = (_deck.BombCount > 0 && _random.NextDouble() < 0.20);
+
+            return pieceToReturn;
         }
 
         public Piece GetNextPiece()
@@ -32,15 +57,27 @@ namespace Tomino.Model
             var pool = GetPopulatedPool();
             if (pool.Count == 0) return null;
 
-            return AvailablePieces.All()[pool[0]];
+            Piece standardPiece = AvailablePieces.All()[pool[0]];
+
+            // "Next" (Sıradaki Taş) panelinde de bombanın görünmesi için
+            if (_nextIsBomb)
+            {
+                var bombPreview = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
+                bombPreview.IsBomb = true;
+                return bombPreview;
+            }
+
+            return standardPiece;
         }
 
-        // YEN�: Desteyi ve havuzu tamamen s�f�rlayan metod
         public void Reset()
         {
             _deck.Reset();
-            _pool.Clear(); // KR�T�K: Eski havuzu tamamen temizle
-            _hasPopulated = false; // GetPopulatedPool'un tekrar �al��mas�n� sa�lar
+            _pool.Clear(); 
+            _hasPopulated = false; 
+
+            // Oyun sıfırlandığında ilk taşın bomba olup olmayacağını belirle
+            _nextIsBomb = (_deck.BombCount > 0 && _random.NextDouble() < 0.20);
         }
 
         private List<int> GetPopulatedPool()
@@ -49,13 +86,15 @@ namespace Tomino.Model
             {
                 PopulatePool();
                 _hasPopulated = true;
+                // Havuz ilk dolduğunda da sıradaki taş zarını atalım
+                _nextIsBomb = (_deck.BombCount > 0 && _random.NextDouble() < 0.20);
             }
             return _pool;
         }
 
         private void PopulatePool()
         {
-            _pool.Clear(); // �nce havuzu temizle
+            _pool.Clear(); 
             var allAvailable = AvailablePieces.All();
 
             for (var index = 0; index < allAvailable.Length; ++index)

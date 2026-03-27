@@ -1,11 +1,14 @@
 using System.Collections.Generic;
-using System.Linq; // Toplam hesaplamak i�in gerekli
+using System.Linq; // Toplam hesaplamak için gerekli
 
 namespace Tomino.Model
 {
     public class Deck
     {
         public Dictionary<PieceType, int> PieceCounts { get; private set; }
+
+        // YENİ: Mağazadan alınan bombaların sayısını burada tutacağız
+        public int BombCount { get; set; } = 0; 
 
         public Deck()
         {
@@ -22,7 +25,8 @@ namespace Tomino.Model
             };
         }
 
-        public int TotalCount => PieceCounts.Values.Sum();
+        // Toplam taş sayısına bombaları da ekliyoruz ki ekranda doğru sayı yazsın
+        public int TotalCount => PieceCounts.Values.Sum() + BombCount;
 
         public void RemovePiece(PieceType type)
         {
@@ -30,6 +34,12 @@ namespace Tomino.Model
             {
                 PieceCounts[type]--;
             }
+        }
+
+        // YENİ: Desteden bomba çekilince sayıyı düşmek için
+        public void RemoveBomb()
+        {
+            if (BombCount > 0) BombCount--;
         }
 
         public void Reset()
@@ -42,6 +52,9 @@ namespace Tomino.Model
             PieceCounts[PieceType.T] = 4;
             PieceCounts[PieceType.Z] = 4;
             PieceCounts[PieceType.Plus] = 1;
+
+            // Not: Reset atıldığında bombayı sıfırlamıyoruz çünkü mağazadan parayla alındı,
+            // oyuncu onu kullanana kadar destesinde beklemeli!
         }
     }
 }

@@ -20,6 +20,7 @@ namespace Tomino.Input
         private Vector2 _initialPosition = Vector2.zero;
         private Vector2 _processedOffset = Vector2.zero;
         private PlayerAction? _playerAction;
+        private PlayerAction? _nextAction;
         private bool _moveDownDetected;
         private float _touchBeginTime;
 
@@ -81,6 +82,11 @@ namespace Tomino.Input
         {
             _cancelCurrentTouch |= UnityEngine.Input.touchCount > 0;
         }
+        public void SetNextAction(Tomino.Model.PlayerAction action)
+{
+    _nextAction = action;
+}
+        
 
         private void TouchBegan(Touch touch)
         {

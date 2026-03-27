@@ -12,11 +12,12 @@ namespace Tomino.Model
         /// <summary>
         /// The collection of blocks contained in this piece.
         /// </summary>
-        public readonly Block[] blocks;
-
+public Block[] blocks { get; private set; }
         /// <summary>
         /// Determines whether the piece can be rotated.
         /// </summary>
+        /// 
+        /// public bool IsBomb  {get;set;}= false 
         public readonly bool canRotate;
 
         /// <summary>
@@ -28,6 +29,7 @@ namespace Tomino.Model
         /// Returns number of columns occupied by this piece.
         /// </summary>
         /// <returns>The width of the piece.</returns>
+        public bool IsBomb { get; set; } = false;
         public int Width
         {
             get

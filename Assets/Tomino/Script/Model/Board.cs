@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Tomino.Shared;
 
@@ -10,7 +10,7 @@ namespace Tomino.Model
         public readonly int height;
 
         public List<Block> Blocks { get; } = new();
-        public Piece Piece { get; private set; }
+        public Piece Piece { get;  set; }
 
         public Piece NextPiece => _pieceProvider?.GetNextPiece();
 
@@ -188,6 +188,90 @@ namespace Tomino.Model
             {
                 provider.Reset();
             }
+        }
+
+        // ==========================================
+        // ---- YENİ: BOMBA SİSTEMİ METOTLARI ----
+        // ==========================================
+
+        public (int blocksDestroyed, int scoreEarned) ExplodeContactBomb(Piece bombPiece)
+        {
+            if (bombPiece == null) return (0, 0);
+
+            var blocksToRemove = new HashSet<Block>();
+
+            // 1. AŞAMA: Bombanın etrafındaki (Sağ, Sol, Üst, Alt) blokları tespit et
+            foreach (var bombBlock in bombPiece.blocks)
+            {
+                int r = bombBlock.Position.Row;
+                int c = bombBlock.Position.Column;
+
+                // Etraftaki hücreleri kontrol et
+                CheckAndMarkNeighborForDestruction(r + 1, c, bombPiece, blocksToRemove); // Üst
+                CheckAndMarkNeighborForDestruction(r - 1, c, bombPiece, blocksToRemove); // Alt
+                CheckAndMarkNeighborForDestruction(r, c + 1, bombPiece, blocksToRemove); // Sağ
+                CheckAndMarkNeighborForDestruction(r, c - 1, bombPiece, blocksToRemove); // Sol
+            }
+
+            // 2. AŞAMA: Tespit edilen komşu blokları Board'dan sil
+            int destroyedNeighborCount = blocksToRemove.Count;
+            if (destroyedNeighborCount > 0)
+            {
+                Remove(blocksToRemove);
+            }
+
+            // 3. AŞAMA: Bombanın kendisini Board'dan sil
+            var bombBlocksList = new List<Block>(bombPiece.blocks);
+            Remove(bombBlocksList);
+
+            // 4. AŞAMA: Havada kalan blokları aşağı düşür (Yerçekimi)
+            ApplyGravityAfterExplosion();
+
+            // Puan hesaplaması: Yok edilen her komşu blok için x10 puan verelim
+            int scoreEarned = destroyedNeighborCount * 10;
+
+            return (destroyedNeighborCount, scoreEarned);
+        }
+
+        private void CheckAndMarkNeighborForDestruction(int row, int col, Piece bombPiece, HashSet<Block> blocksToRemove)
+        {
+            // Koordinatlar Board içinde mi?
+            if (row < 0 || row >= height || col < 0 || col >= width) return;
+
+            // O koordinatta bir blok var mı?
+            var neighborBlock = Blocks.FirstOrDefault(b => b.Position.Row == row && b.Position.Column == col);
+            
+            if (neighborBlock != null)
+            {
+                // Bulunan blok bombanın kendi parçası değilse, yok edilecekler listesine ekle
+                bool isPartOfBomb = bombPiece.blocks.Any(bb => bb.Position.Row == row && bb.Position.Column == col);
+                if (!isPartOfBomb)
+                {
+                    blocksToRemove.Add(neighborBlock);
+                }
+            }
+        }
+
+        private void ApplyGravityAfterExplosion()
+        {
+            bool moved;
+            do
+            {
+                moved = false;
+                for (int row = 1; row < height; row++) // En alt satırın altına düşemeyecekleri için row 1'den başlar
+                {
+                    var blocksInRow = GetBlocksFromRow(row);
+                    foreach (var block in blocksInRow)
+                    {
+                        // Altındaki hücre boş mu?
+                        if (!Blocks.Any(b => b.Position.Row == block.Position.Row - 1 && b.Position.Column == block.Position.Column))
+                        {
+                            block.MoveBy(-1, 0); // Bir alt satıra indir
+                            moved = true;
+                        }
+                    }
+                }
+            } while (moved); // Hiçbir blok hareket etmeyene kadar döngüyü tekrarla
         }
     }
 }
