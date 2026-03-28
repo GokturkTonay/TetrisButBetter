@@ -44,8 +44,9 @@ namespace Tomino.Model
             // DESTE GÜNCELLEME: Çekilen parçayı destedeki sayıdan düşer.
             Deck?.RemovePiece(Piece.Type);
 
-            var offsetRow = Top - Piece.Top;
-            var offsetCol = (width - Piece.Width) / 2;
+            // Offset hesaplaması: Piece'ı en üstten başlatıp ortalıyoruz
+            var offsetRow = Top - Piece.Top;  // En üste konumlandır
+            var offsetCol = (width - Piece.Width) / 2;  // Merkezde başlat
 
             foreach (var block in Piece.blocks)
             {
@@ -77,20 +78,33 @@ namespace Tomino.Model
 
         public override int GetHashCode()
         {
-            return (from block in Blocks
-                    let row = block.Position.Row
-                    let column = block.Position.Column
-                    let offset = width * height * (int)block.Type
-                    select offset + row * width + column).Sum();
+            int hash = 0;
+            for (int i = 0; i < Blocks.Count; i++)
+            {
+                var block = Blocks[i];
+                int row = block.Position.Row;
+                int column = block.Position.Column;
+                int offset = width * height * (int)block.Type;
+                hash += offset + row * width + column;
+            }
+            return hash;
         }
 
         public ICollection<Position> GetPieceShadow()
         {
             if (Piece == null) return new List<Position>();
-            var positions = Piece.GetPositions();
-            _ = FallPiece();
-            var shadowPositions = Piece.GetPositions().Values.Map(p => p);
-            RestoreSavedPiecePosition(positions);
+            
+            var savedPositions = Piece.GetPositions();
+            var shadowPositions = new List<Position>();
+            
+            while (MovePieceDown()) { }
+            
+            foreach (var block in Piece.blocks)
+            {
+                shadowPositions.Add(new Position(block.Position.Row, block.Position.Column));
+            }
+            
+            RestoreSavedPiecePosition(savedPositions);
             return shadowPositions;
         }
 
@@ -153,17 +167,28 @@ namespace Tomino.Model
         {
             int rowsRemoved = 0;
             int totalBlocksRemoved = 0;
-            for (int row = height - 1; row >= 0; --row)
+            
+            // Optimize: Silinecek satırları önce topla (aşağıdan yukarıya işleme)
+            var rowsToRemove = new List<int>();
+            for (int row = 0; row < height; row++)
             {
                 var rowBlocks = GetBlocksFromRow(row);
                 if (rowBlocks.Count == width)
                 {
+                    rowsToRemove.Add(row);
                     totalBlocksRemoved += rowBlocks.Count;
-                    Remove(rowBlocks);
-                    MoveDownBlocksBelowRow(row);
-                    rowsRemoved += 1;
                 }
             }
+            
+            // Silinecek satırları (ters sırada) sil
+            foreach (int row in rowsToRemove)
+            {
+                var rowBlocks = GetBlocksFromRow(row);
+                Remove(rowBlocks);
+                MoveDownBlocksBelowRow(row);
+                rowsRemoved++;
+            }
+            
             int scoreForTurn = totalBlocksRemoved * rowsRemoved;
             return (rowsRemoved, scoreForTurn);
         }
@@ -176,6 +201,7 @@ namespace Tomino.Model
 
         private void MoveDownBlocksBelowRow(int row)
         {
+            // Optimize: Sadece ilgili satırın altında bulunan blokları tarama
             foreach (var block in Blocks.Where(block => block.Position.Row > row))
             {
                 block.MoveBy(-1, 0);
@@ -198,6 +224,17 @@ namespace Tomino.Model
         {
             if (bombPiece == null) return (0, 0);
 
+            // Bomba bloklarını HashSet'e ekle (O(1) lookup)
+            var bombBlockSet = new HashSet<Block>(bombPiece.blocks);
+            
+            // Position-based lookup dictionary oluştur (O(1) position lookup)
+            var positionToBlockMap = new Dictionary<(int, int), Block>();
+            foreach (var block in Blocks)
+            {
+                var pos = (block.Position.Row, block.Position.Column);
+                positionToBlockMap[pos] = block;
+            }
+
             var blocksToRemove = new HashSet<Block>();
 
             // 1. AŞAMA: Bombanın etrafındaki (Sağ, Sol, Üst, Alt) blokları tespit et
@@ -206,11 +243,11 @@ namespace Tomino.Model
                 int r = bombBlock.Position.Row;
                 int c = bombBlock.Position.Column;
 
-                // Etraftaki hücreleri kontrol et
-                CheckAndMarkNeighborForDestruction(r + 1, c, bombPiece, blocksToRemove); // Üst
-                CheckAndMarkNeighborForDestruction(r - 1, c, bombPiece, blocksToRemove); // Alt
-                CheckAndMarkNeighborForDestruction(r, c + 1, bombPiece, blocksToRemove); // Sağ
-                CheckAndMarkNeighborForDestruction(r, c - 1, bombPiece, blocksToRemove); // Sol
+                // Etraftaki hücreleri kontrol et (4 yön) - O(1) lookup
+                CheckAndMarkNeighborForDestruction(r + 1, c, bombBlockSet, blocksToRemove, positionToBlockMap);
+                CheckAndMarkNeighborForDestruction(r - 1, c, bombBlockSet, blocksToRemove, positionToBlockMap);
+                CheckAndMarkNeighborForDestruction(r, c + 1, bombBlockSet, blocksToRemove, positionToBlockMap);
+                CheckAndMarkNeighborForDestruction(r, c - 1, bombBlockSet, blocksToRemove, positionToBlockMap);
             }
 
             // 2. AŞAMA: Tespit edilen komşu blokları Board'dan sil
@@ -221,10 +258,9 @@ namespace Tomino.Model
             }
 
             // 3. AŞAMA: Bombanın kendisini Board'dan sil
-            var bombBlocksList = new List<Block>(bombPiece.blocks);
-            Remove(bombBlocksList);
+            Remove(bombBlockSet);
 
-            // 4. AŞAMA: Havada kalan blokları aşağı düşür (Yerçekimi)
+            // 4. AŞAMA: Havada kalan blokları aşağı düşür (Yerçekimi) - Optimize edilmiş
             ApplyGravityAfterExplosion();
 
             // Puan hesaplaması: Yok edilen her komşu blok için x10 puan verelim
@@ -233,19 +269,15 @@ namespace Tomino.Model
             return (destroyedNeighborCount, scoreEarned);
         }
 
-        private void CheckAndMarkNeighborForDestruction(int row, int col, Piece bombPiece, HashSet<Block> blocksToRemove)
+        private void CheckAndMarkNeighborForDestruction(int row, int col, HashSet<Block> bombBlockSet, HashSet<Block> blocksToRemove, Dictionary<(int, int), Block> positionMap)
         {
             // Koordinatlar Board içinde mi?
             if (row < 0 || row >= height || col < 0 || col >= width) return;
 
-            // O koordinatta bir blok var mı?
-            var neighborBlock = Blocks.FirstOrDefault(b => b.Position.Row == row && b.Position.Column == col);
-            
-            if (neighborBlock != null)
+            // O(1) lookup position map'ten
+            if (positionMap.TryGetValue((row, col), out var neighborBlock))
             {
-                // Bulunan blok bombanın kendi parçası değilse, yok edilecekler listesine ekle
-                bool isPartOfBomb = bombPiece.blocks.Any(bb => bb.Position.Row == row && bb.Position.Column == col);
-                if (!isPartOfBomb)
+                if (!bombBlockSet.Contains(neighborBlock))
                 {
                     blocksToRemove.Add(neighborBlock);
                 }
@@ -254,24 +286,30 @@ namespace Tomino.Model
 
         private void ApplyGravityAfterExplosion()
         {
-            bool moved;
-            do
+            // Basit gravity: her satır için, blokları aşağıda boş yerlere düşür
+            bool moved = true;
+            while (moved)
             {
                 moved = false;
-                for (int row = 1; row < height; row++) // En alt satırın altına düşemeyecekleri için row 1'den başlar
+                for (int i = 0; i < Blocks.Count; i++)
                 {
-                    var blocksInRow = GetBlocksFromRow(row);
-                    foreach (var block in blocksInRow)
+                    var block = Blocks[i];
+                    int row = block.Position.Row;
+                    int col = block.Position.Column;
+                    
+                    // Altında blok var mı kontrol et
+                    bool blockBelow = Blocks.Any(b => 
+                        b.Position.Row == row - 1 && 
+                        b.Position.Column == col);
+                    
+                    // Altında blok yok ve board limiti içinde ise düşür
+                    if (!blockBelow && row > 0)
                     {
-                        // Altındaki hücre boş mu?
-                        if (!Blocks.Any(b => b.Position.Row == block.Position.Row - 1 && b.Position.Column == block.Position.Column))
-                        {
-                            block.MoveBy(-1, 0); // Bir alt satıra indir
-                            moved = true;
-                        }
+                        block.MoveBy(-1, 0);
+                        moved = true;
                     }
                 }
-            } while (moved); // Hiçbir blok hareket etmeyene kadar döngüyü tekrarla
+            }
         }
     }
 }

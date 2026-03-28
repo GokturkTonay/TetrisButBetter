@@ -32,18 +32,14 @@ namespace Tomino.Model
 
             Piece pieceToReturn;
 
-            // Eğer bu taş için bomba kararı verildiyse, taşı bombaya çevir
+            // HER ZAMAN yeni Piece nesnesi oluştur (Block'lar paylaşılmasın diye)
+            pieceToReturn = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
+            
+            // Eğer bu taş için bomba kararı verildiyse, bomba bayrağını aç
             if (_nextIsBomb)
             {
                 _deck.RemoveBomb(); // Bombayı kullandığımız için desteden düşüyoruz
-                
-                // Orijinal taşın özelliklerini kopyalayıp yepyeni bir "Bomba" taşı üretiyoruz
-                pieceToReturn = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
                 pieceToReturn.IsBomb = true; // Bomba bayrağını aç
-            }
-            else
-            {
-                pieceToReturn = standardPiece;
             }
 
             // Bir sonraki taş için zar at (Eğer destede bomba varsa %20 ihtimalle bomba gelsin)
@@ -60,14 +56,15 @@ namespace Tomino.Model
             Piece standardPiece = AvailablePieces.All()[pool[0]];
 
             // "Next" (Sıradaki Taş) panelinde de bombanın görünmesi için
+            // HER ZAMAN yeni Piece nesnesi oluştur (Block'lar paylaşılmasın diye)
+            var nextPiece = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
+            
             if (_nextIsBomb)
             {
-                var bombPreview = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
-                bombPreview.IsBomb = true;
-                return bombPreview;
+                nextPiece.IsBomb = true;
             }
 
-            return standardPiece;
+            return nextPiece;
         }
 
         public void Reset()

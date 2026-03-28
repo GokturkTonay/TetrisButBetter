@@ -95,9 +95,16 @@ namespace Tomino
             if (rows > 0) {
                 this.Pause();
                 var mm = Object.FindFirstObjectByType<MenuManager>();
-                if (mm != null) mm.StartCoroutine(mm.CalculateMultiplierSequence(this, rows));
+                if (mm != null) mm.StartCoroutine(SafeRowClearSequence(rows));
                 Level.RowsCleared(rows);
             } else if (_isPlaying) AddPiece();
+        }
+
+        private IEnumerator SafeRowClearSequence(int rows)
+        {
+            var mm = Object.FindFirstObjectByType<MenuManager>();
+            if (mm != null) yield return mm.StartCoroutine(mm.CalculateMultiplierSequence(this, rows));
+            if (_isPlaying) AddPiece();
         }
     }
 }

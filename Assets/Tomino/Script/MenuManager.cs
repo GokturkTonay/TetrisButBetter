@@ -39,7 +39,7 @@ namespace Tomino
 {
     // ÖNLEYİCİ: Eğer oyun zaten durduysa veya rowsCount saçma bir rakamsa çık
     if (rowsCount <= 0) {
-        if (game != null) { game.Resume(); game.AddPiece(); }
+        if (game != null) { game.Resume(); }
         yield break;
     }
 
@@ -66,7 +66,7 @@ namespace Tomino
     CheckScoreAndTransition(game, game.Level.TargetScore);
 
     game.Resume();
-    game.AddPiece(); 
+    // AddPiece() BURADAN KALKADı - SafeBombSequence veya HandleNormalRowClear'da çağrılacak
 }
 
         private IEnumerator ShowWinSequence()

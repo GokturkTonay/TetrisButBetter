@@ -49,15 +49,17 @@ namespace Tomino.View
         private void RenderBlocks()
         {
             bool isBomb = _gameBoard.Piece != null && _gameBoard.Piece.IsBomb;
+            
+            // Eğer bomb ise piece block'larını HashSet'e ekle (O(1) lookup)
+            // Block nesneleri kıyaslamak reference-based olup hashable olduğu için
+            var bombBlockSet = isBomb ? new System.Collections.Generic.HashSet<Block>(_gameBoard.Piece.blocks) : null;
+            
             foreach (var block in _gameBoard.Blocks)
             {
                 Color colorToRender = BlockColor(block.Type);
-                if (isBomb)
+                if (isBomb && bombBlockSet.Contains(block))
                 {
-                    foreach (var b in _gameBoard.Piece.blocks)
-                    {
-                        if (ReferenceEquals(b, block)) { colorToRender = Color.black; break; }
-                    }
+                    colorToRender = Color.black;
                 }
                 RenderBlock(blockSprite, block.Position, colorToRender, Layer.Blocks);
             }
