@@ -45,12 +45,14 @@ namespace Tomino.View
             _blockViewPool.DeactivateAll();
             var blockSize = BlockSize(piece);
             var activeBlocks = new List<BlockView>();
+            // Get custom sprite if available, otherwise use the default block sprite
+            Sprite spriteToUse = themeProvider.currentTheme.GetBlockSprite(piece.Type, piece.ColorIndex) ?? blockSprite;
             foreach (var block in piece.blocks)
             {
                 var view = _blockViewPool.GetAndActivate();
-                view.SetSprite(blockSprite);
+                view.SetSprite(spriteToUse);
                 view.SetSize(blockSize);
-                view.SetColor(piece.IsBomb ? Color.black : BlockColor(block.Type));
+                view.SetColor(piece.IsBomb ? Color.black : Color.white);
                 view.SetPosition(new Vector3(block.Position.Column * blockSize, block.Position.Row * blockSize));
                 activeBlocks.Add(view);
             }
@@ -63,7 +65,7 @@ namespace Tomino.View
             foreach (var b in activeBlocks) b.transform.localPosition += offset;
         }
 
-        private float BlockSize(Piece p) => Mathf.Min(container.rect.width / 4, container.rect.height / 4);
+        private float BlockSize(Piece p) => container != null ? Mathf.Min(container.rect.width / 4, container.rect.height / 4) : 20f;
         private Color BlockColor(PieceType t) => themeProvider.currentTheme.BlockColors[(int)t];
     }
 }

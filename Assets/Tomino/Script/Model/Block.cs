@@ -16,6 +16,11 @@ namespace Tomino.Model
         public Position Position { get; private set; }
 
         /// <summary>
+        /// The color variant index (0-3) for this block.
+        /// </summary>
+        public int ColorIndex { get; set; }
+
+        /// <summary>
         /// Creates a block with specified position and type.
         /// </summary>
         /// <param name="position">The position of the block.</param>
@@ -24,6 +29,7 @@ namespace Tomino.Model
         {
             Position = position;
             Type = type;
+            ColorIndex = 0;
         }
 
         /// <summary>

@@ -50,6 +50,8 @@ namespace Tomino.Model
 
             foreach (var block in Piece.blocks)
             {
+                // Blokların renk variant index'ını piece'in variant index'ine set et
+                block.ColorIndex = Piece.ColorIndex;
                 block.MoveBy(offsetRow, offsetCol);
             }
 
@@ -97,7 +99,9 @@ namespace Tomino.Model
             var savedPositions = Piece.GetPositions();
             var shadowPositions = new List<Position>();
             
-            while (MovePieceDown()) { }
+            // Saf olarak hareket et - max height kadar dene
+            int maxIterations = height;
+            while (maxIterations-- > 0 && MovePieceDown()) { }
             
             foreach (var block in Piece.blocks)
             {

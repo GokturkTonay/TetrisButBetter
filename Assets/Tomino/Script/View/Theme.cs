@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Tomino.Model;
 
 namespace Tomino.View
 {
@@ -38,6 +39,10 @@ namespace Tomino.View
         public Color blockShadowColor = Color.white;
 
         [Space(10)]
+        // Tüm piece type'ları için ortak 4 variant sprite'ı
+        public Sprite[] blockSprites = new Sprite[4];
+
+        [Space(10)]
         public Color gameBackgroundColor = new(35 / 255.0f, 65 / 255.0f, 100 / 255.0f, 1);
         public Color boardBackgroundColor = new(30 / 255.0f, 40 / 255.0f, 50 / 255.0f, 1);
         public Color boardBorderColor = new(55 / 255.0f, 135 / 255.0f, 225 / 255.0f, 1);
@@ -68,6 +73,14 @@ namespace Tomino.View
         {
             blockColor1, blockColor2, blockColor3, blockColor4, blockColor5, blockColor6, blockColor7, blockColorPlus
         };
+
+        public Sprite GetBlockSprite(PieceType type, int colorIndex)
+        {
+            // colorIndex 0-3 arasında olmalı, güvenli bir şekilde kullan
+            if (colorIndex < 0 || colorIndex > 3) colorIndex = 0;
+            
+            return blockSprites[colorIndex];
+        }
 
         public Color GetColor(ThemeColorName colorName)
         {

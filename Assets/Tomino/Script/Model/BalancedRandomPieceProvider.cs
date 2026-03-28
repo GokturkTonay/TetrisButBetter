@@ -35,6 +35,9 @@ namespace Tomino.Model
             // HER ZAMAN yeni Piece nesnesi oluştur (Block'lar paylaşılmasın diye)
             pieceToReturn = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
             
+            // Rastgele renk index ata (0-3 arası)
+            pieceToReturn.ColorIndex = _random.Next(4);
+            
             // Eğer bu taş için bomba kararı verildiyse, bomba bayrağını aç
             if (_nextIsBomb)
             {
@@ -58,6 +61,9 @@ namespace Tomino.Model
             // "Next" (Sıradaki Taş) panelinde de bombanın görünmesi için
             // HER ZAMAN yeni Piece nesnesi oluştur (Block'lar paylaşılmasın diye)
             var nextPiece = new Piece(standardPiece.GetPositions().Values, standardPiece.Type, standardPiece.canRotate);
+            
+            // Rastgele renk index ata (0-3 arası)
+            nextPiece.ColorIndex = _random.Next(4);
             
             if (_nextIsBomb)
             {

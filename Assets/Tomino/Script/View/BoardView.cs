@@ -8,7 +8,7 @@ namespace Tomino.View
 {
     public class BoardView : MonoBehaviour
     {
-        private enum Layer { Blocks, PieceShadow }
+        private enum Layer { PieceShadow = -1, Blocks = 0 }
         public GameObject blockPrefab;
         public Sprite blockSprite;
         public ThemeProvider themeProvider;
@@ -56,12 +56,16 @@ namespace Tomino.View
             
             foreach (var block in _gameBoard.Blocks)
             {
-                Color colorToRender = BlockColor(block.Type);
+                Color colorToRender = Color.white;
                 if (isBomb && bombBlockSet.Contains(block))
                 {
                     colorToRender = Color.black;
                 }
-                RenderBlock(blockSprite, block.Position, colorToRender, Layer.Blocks);
+                
+                // Get custom sprite if available, otherwise use the default block sprite
+                Sprite spriteToUse = themeProvider.currentTheme.GetBlockSprite(block.Type, block.ColorIndex) ?? blockSprite;
+                
+                RenderBlock(spriteToUse, block.Position, colorToRender, Layer.Blocks);
             }
         }
 
@@ -83,8 +87,13 @@ namespace Tomino.View
         }
 
         internal void Awake() { _rectTransform = GetComponent<RectTransform>(); Settings.changedEvent += () => _forceRender = true; }
-        private Vector3 BlockPosition(int r, int c, Layer l) => new Vector3(c*BlockSize(), r*BlockSize(), (float)l) + new Vector3(BlockSize()/2, BlockSize()/2, 0) - PivotOffset();
-        private float BlockSize() => _rectTransform.rect.size.x / _gameBoard.width;
+        private Vector3 BlockPosition(int r, int c, Layer l) 
+        { 
+            float size = BlockSize();
+            if (_rectTransform == null || size <= 0) return Vector3.zero;
+            return new Vector3((c + 0.5f)*size, (r + 0.5f)*size, (float)l) - PivotOffset();
+        }
+        private float BlockSize() => _gameBoard != null && _gameBoard.width > 0 ? _rectTransform.rect.size.x / _gameBoard.width : 0.1f;
         private Color BlockColor(PieceType t) => themeProvider.currentTheme.BlockColors[(int)t];
         private Vector3 PivotOffset() => new Vector3(_rectTransform.rect.size.x * _rectTransform.pivot.x, _rectTransform.rect.size.y * _rectTransform.pivot.y);
     }

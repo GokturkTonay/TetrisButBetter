@@ -26,6 +26,11 @@ public Block[] blocks { get; private set; }
         public PieceType Type { get; private set; }
 
         /// <summary>
+        /// The color variant index (0-3) for this piece.
+        /// </summary>
+        public int ColorIndex { get; set; }
+
+        /// <summary>
         /// Returns number of columns occupied by this piece.
         /// </summary>
         /// <returns>The width of the piece.</returns>
