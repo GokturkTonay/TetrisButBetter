@@ -9,5 +9,7 @@ namespace Tomino
         public PieceView nextPieceView;
         public ScoreView scoreView;
         public LevelView levelView;
+        public Tomino.View.DeckUIView deckUIView;
+        public Tomino.View.DeckCardsManager deckCardsManager;
     }
 }

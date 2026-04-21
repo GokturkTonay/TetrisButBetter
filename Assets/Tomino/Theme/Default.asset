@@ -22,10 +22,10 @@ MonoBehaviour:
   blockColorPlus: {r: 0, g: 1, b: 0.39215687, a: 1}
   blockShadowColor: {r: 1, g: 1, b: 1, a: 1}
   blockSprites:
-  - {fileID: 2762893263068594194, guid: e9c63c846d40a2e44843cefb3c97790b, type: 3}
-  - {fileID: -5093630241136695166, guid: 8874b72b0965e6a4e96794f6f348106d, type: 3}
-  - {fileID: -6988919305125128356, guid: a2088f388938eea4d8dc787b3f352a5e, type: 3}
-  - {fileID: -7822040707870648692, guid: bed77e733a4b0ee4a9eead03ed8d1bac, type: 3}
+  - {fileID: 21300000, guid: 3797b765d9e097344a76e8ce17bf9ddb, type: 3}
+  - {fileID: 21300000, guid: 861906c621d5fbd4d93cb683e71d1b7d, type: 3}
+  - {fileID: 21300000, guid: 7c3d304d145f92f48b37fd6e7445971d, type: 3}
+  - {fileID: 21300000, guid: 81c60c7730556d94f87a77b8d7f0b179, type: 3}
   gameBackgroundColor: {r: 0.13725491, g: 0.25490198, b: 0.39215687, a: 1}
   boardBackgroundColor: {r: 0.11764706, g: 0.15686275, b: 0.19607843, a: 1}
   boardBorderColor: {r: 0.21568628, g: 0.5294118, b: 0.88235295, a: 1}

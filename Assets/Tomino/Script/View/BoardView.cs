@@ -14,29 +14,90 @@ namespace Tomino.View
         public ThemeProvider themeProvider;
         public Sprite shadowBlockSprite;
         public readonly TouchInput touchInput = new();
+        public DeckUIView deckUIView;
+        public DeckCardsManager deckCardsManager;
 
         private Board _gameBoard;
         private int _renderedBoardHash = -1;
         private bool _forceRender;
         private GameObjectPool<BlockView> _blockViewPool;
         private RectTransform _rectTransform;
+        private int _deckStateHash = -1;
 
         public void SetBoard(Board board)
         {
             _gameBoard = board;
             _blockViewPool = new GameObjectPool<BlockView>(blockPrefab, board.width * board.height + 20, gameObject);
             _forceRender = true;
+            
+            // ÖNEMLİ: DeckUIView ve DeckCardsManager ayrı tutulur
+            // DeckUIView deaktif, sadece DeckCardsManager kullanılır
+            Debug.Log("BoardView.SetBoard: Board kuruldu. DeckUIView deaktif, sadece DeckCardsManager aktif.");
         }
 
         internal void Update()
         {
-            if (_gameBoard == null) return;
+            if (_gameBoard == null) 
+            {
+                Debug.LogError("BoardView.Update: _gameBoard NULL!");
+                return;
+            }
+
+            if (_blockViewPool == null)
+            {
+                Debug.LogError("BoardView.Update: _blockViewPool NULL!");
+                return;
+            }
+
+            if (themeProvider == null)
+            {
+                Debug.LogError("BoardView.Update: themeProvider NULL! Pieces render edilemiyor!");
+                return;
+            }
+
             touchInput.blockSize = BlockSize();
             var hash = _gameBoard.GetHashCode();
             if (!_forceRender && hash == _renderedBoardHash) return;
+            
             RenderGameBoard();
             _renderedBoardHash = hash;
             _forceRender = false;
+            
+            // Deck durumunu kontrol et ve değişirse refresh et
+            RefreshDeckUIIfNeeded();
+        }
+
+        private void RefreshDeckUIIfNeeded()
+        {
+            if (_gameBoard?.Deck == null) return;
+            
+            int currentDeckHash = CalculateDeckHash();
+            if (currentDeckHash != _deckStateHash)
+            {
+                // ÖNEMLİ: SADECE DeckCardsManager'ı güncelle
+                // DeckUIView oyunun BlockView pool'u ile çatışıyor, deaktif tut
+                if (deckCardsManager != null)
+                {
+                    deckCardsManager.RefreshAllCards();
+                }
+
+                _deckStateHash = currentDeckHash;
+            }
+        }
+
+        private int CalculateDeckHash()
+        {
+            int hash = 0;
+            if (_gameBoard?.Deck?.AvailablePieces != null)
+            {
+                foreach (var (type, colorIndex) in _gameBoard.Deck.AvailablePieces)
+                {
+                    hash = hash * 31 + ((int)type).GetHashCode();
+                    hash = hash * 31 + colorIndex.GetHashCode();
+                }
+            }
+            hash = hash * 31 + (_gameBoard?.Deck?.BombCount ?? 0).GetHashCode();
+            return hash;
         }
 
         private void RenderGameBoard()
@@ -48,6 +109,12 @@ namespace Tomino.View
 
         private void RenderBlocks()
         {
+            if (themeProvider == null || themeProvider.currentTheme == null)
+            {
+                Debug.LogError("BoardView.RenderBlocks: ThemeProvider veya currentTheme NULL!");
+                return;
+            }
+
             bool isBomb = _gameBoard.Piece != null && _gameBoard.Piece.IsBomb;
             
             // Eğer bomb ise piece block'larını HashSet'e ekle (O(1) lookup)
@@ -64,6 +131,12 @@ namespace Tomino.View
                 
                 // Get custom sprite if available, otherwise use the default block sprite
                 Sprite spriteToUse = themeProvider.currentTheme.GetBlockSprite(block.Type, block.ColorIndex) ?? blockSprite;
+                
+                if (spriteToUse == null)
+                {
+                    Debug.LogWarning($"BoardView.RenderBlocks: Sprite NULL for {block.Type} Color:{block.ColorIndex}");
+                    spriteToUse = blockSprite;
+                }
                 
                 RenderBlock(spriteToUse, block.Position, colorToRender, Layer.Blocks);
             }

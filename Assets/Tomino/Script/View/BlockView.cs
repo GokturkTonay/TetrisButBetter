@@ -13,6 +13,12 @@ namespace Tomino.View
 
         public void SetSprite(Sprite sprite)
         {
+            if (_spriteRenderer == null)
+            {
+                Debug.LogError("BlockView.SetSprite: _spriteRenderer NULL! GameObject: " + gameObject.name);
+                return;
+            }
+            
             _spriteRenderer.sprite = sprite;
         }
 
@@ -24,12 +30,24 @@ namespace Tomino.View
 
         public void SetColor(Color color)
         {
-            // Sprite orijinal rengini koru - renk değişimi yok
+            if (_spriteRenderer == null)
+            {
+                Debug.LogError("BlockView.SetColor: _spriteRenderer NULL!");
+                return;
+            }
+
             _spriteRenderer.color = color;
         }
 
         public void SetSize(float size)
         {
+            if (_spriteRenderer == null)
+            {
+                Debug.LogError("BlockView.SetSize: _spriteRenderer NULL!");
+                transform.localScale = Vector3.one * size;
+                return;
+            }
+
             var sprite = _spriteRenderer.sprite;
             if (sprite == null || sprite.rect.width <= 0) 
             {

@@ -127,5 +127,30 @@ namespace Tomino
                 Debug.Log("Bomba satın alındı! Destedeki bomba sayısı: " + levelView.board.Deck.BombCount);
             }
         }
+
+        // ==========================================
+        // DECK UI SİSTEMİ: Pause/Resume Metodları
+        // ==========================================
+        /// <summary>
+        /// Deck paneli açıldığında oyunu durdur.
+        /// </summary>
+        public void PauseGameForDeck()
+        {
+            if (levelView != null && levelView.game != null)
+            {
+                levelView.game.Pause();
+            }
+        }
+
+        /// <summary>
+        /// Deck paneli kapatıldığında oyunu devam ettir.
+        /// </summary>
+        public void ResumeGameFromDeck()
+        {
+            if (levelView != null && levelView.game != null)
+            {
+                levelView.game.Resume();
+            }
+        }
     }
 }

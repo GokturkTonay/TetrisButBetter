@@ -41,8 +41,8 @@ namespace Tomino.Model
                 return;
             }
 
-            // DESTE GÜNCELLEME: Çekilen parçayı destedeki sayıdan düşer.
-            Deck?.RemovePiece(Piece.Type);
+            // DESTE GÜNCELLEME: Çekilen parçayı (tür + renk) destedeki sayıdan düşer.
+            Deck?.RemovePieceWithColor(Piece.Type, Piece.ColorIndex);
 
             // Offset hesaplaması: Piece'ı en üstten başlatıp ortalıyoruz
             var offsetRow = Top - Piece.Top;  // En üste konumlandır
