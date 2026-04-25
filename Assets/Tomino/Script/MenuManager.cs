@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using Tomino.View;
 
 namespace Tomino
 {
@@ -13,15 +14,17 @@ namespace Tomino
         public GameObject levelSelectPanel;
 
         [Header("Level Ayarları")]
-        public int[] levelTargetScores = { 100, 250, 500, 1000, 2000 }; 
+        public int[] levelTargetScores = { 100, 250, 500, 1000, 2000 };
         private int _currentLevelIndex = 0;
 
         [Header("Referanslar")]
         public TextMeshProUGUI levelSelectTargetText;
-        public Tomino.View.LevelView levelView;
-        
+        public LevelView levelView;
+        [Tooltip("DeckCardsManager component'ini sürükleyin.")]
+        public DeckCardsManager deckCardsManager;
+
         [Header("Balatro Çarpan Sistemi")]
-        public TextMeshProUGUI multiplierText; 
+        public TextMeshProUGUI multiplierText;
 
         public void CheckScoreAndTransition(Game game, int targetScore)
         {
@@ -29,51 +32,64 @@ namespace Tomino
 
             if (game.Score.Value >= currentTarget)
             {
-                game.Pause(); 
-                StartCoroutine(ShowWinSequence()); 
+                game.Pause();
+                StartCoroutine(ShowWinSequence());
             }
         }
 
         // CS1061 Hatasını Çözen Metot: Çarpan hesaplama ve ekranda gösterme sekansı
         public IEnumerator CalculateMultiplierSequence(Game game, int rowsCount)
-{
-    // ÖNLEYİCİ: Eğer oyun zaten durduysa veya rowsCount saçma bir rakamsa çık
-    if (rowsCount <= 0) {
-        if (game != null) { game.Resume(); }
-        yield break;
-    }
+        {
+            // ÖNLEYİCİ: Eğer oyun zaten durduysa veya rowsCount saçma bir rakamsa çık
+            if (rowsCount <= 0)
+            {
+                if (game != null) { game.Resume(); }
+                yield break;
+            }
 
-    int basePuan = rowsCount * 10; 
-    int carpan = rowsCount;
-    int kazanilanPuan = basePuan * carpan;
+            int basePuan = rowsCount * 10;
+            int carpan = rowsCount;
+            int kazanilanPuan = basePuan * carpan;
 
-    // Puanı SADECE BİR KEZ ekle (Döngüye girmesin)
-    game.Score.Value += kazanilanPuan; 
+            // Puanı SADECE BİR KEZ ekle (Döngüye girmesin)
+            game.Score.Value += kazanilanPuan;
 
-    if (multiplierText != null)
-    {
-        multiplierText.gameObject.SetActive(true);
-        multiplierText.text = $"{basePuan} x {carpan}\n+ {kazanilanPuan}!";
-    }
+            if (multiplierText != null)
+            {
+                multiplierText.gameObject.SetActive(true);
+                multiplierText.text = $"{basePuan} x {carpan}\n+ {kazanilanPuan}!";
+            }
 
-    // Animasyon beklerken Update'in şişmesini engellemek için kısa tut
-    yield return new WaitForSecondsRealtime(0.5f); 
+            // Animasyon beklerken Update'in şişmesini engellemek için kısa tut
+            yield return new WaitForSecondsRealtime(0.5f);
 
-    if (multiplierText != null) multiplierText.gameObject.SetActive(false);
+            if (multiplierText != null) multiplierText.gameObject.SetActive(false);
 
-    // DİKKAT: Burada CheckScoreAndTransition çağırırken dikkatli ol!
-    // Eğer o fonksiyon içinde tekrar coroutine başlatıyorsan RAM patlar.
-    CheckScoreAndTransition(game, game.Level.TargetScore);
+            // DİKKAT: Burada CheckScoreAndTransition çağırırken dikkatli ol!
+            // Eğer o fonksiyon içinde tekrar coroutine başlatıyorsan RAM patlar.
+            CheckScoreAndTransition(game, game.Level.TargetScore);
 
-    game.Resume();
-    // AddPiece() BURADAN KALKADı - SafeBombSequence veya HandleNormalRowClear'da çağrılacak
-}
+            game.Resume();
+            // AddPiece() BURADAN KALKADı - SafeBombSequence veya HandleNormalRowClear'da çağrılacak
+        }
 
         private IEnumerator ShowWinSequence()
         {
             if (youWonPanel != null) youWonPanel.SetActive(true);
             yield return new WaitForSeconds(2f);
             if (youWonPanel != null) youWonPanel.SetActive(false);
+
+            // Deste kartlarını reset et (ColorRow'daki objeleri sil ve yeniden spawn et)
+            if (deckCardsManager != null)
+            {
+                deckCardsManager.ResetDeckCards();
+                Debug.Log("MenuManager.ShowWinSequence: Deste kartları reset edildi!");
+            }
+            else
+            {
+                Debug.LogWarning("MenuManager.ShowWinSequence: deckCardsManager NULL! Inspector'dan bağla.");
+            }
+
             gamePanel.SetActive(false);
             shopPanel.SetActive(true);
         }
@@ -82,12 +98,12 @@ namespace Tomino
         {
             shopPanel.SetActive(false);
             // Haritayı es geçip doğrudan sıradaki leveli başlatıyoruz
-            StartLevel(); 
+            StartLevel();
         }
 
         public void StartLevel()
         {
-            _currentLevelIndex++; 
+            _currentLevelIndex++;
             if (_currentLevelIndex >= levelTargetScores.Length)
             {
                 _currentLevelIndex = levelTargetScores.Length - 1;
@@ -109,6 +125,13 @@ namespace Tomino
 
                 levelView.board.ResetDeck();
 
+                // Deste kartlarını yeni deck durumuna göre yeniden oluştur
+                if (deckCardsManager != null)
+                {
+                    deckCardsManager.ResetDeckCards();
+                    Debug.Log("MenuManager.StartLevel: Deste kartları yeniden oluşturuldu.");
+                }
+
                 if (levelView.deckCountText != null && levelView.board.Deck != null)
                     levelView.deckCountText.text = "DESTE: " + levelView.board.Deck.TotalCount;
 
@@ -121,10 +144,14 @@ namespace Tomino
         // ==========================================
         public void BuyBomb()
         {
-            if (levelView != null && levelView.board != null && levelView.board.Deck != null)
+            if (deckCardsManager != null)
             {
-                levelView.board.Deck.BombCount++;
-                Debug.Log("Bomba satın alındı! Destedeki bomba sayısı: " + levelView.board.Deck.BombCount);
+                deckCardsManager.EnterBombSelectionMode();
+                Debug.Log("MenuManager.BuyBomb: Bomba seçim modu açıldı. Kullanıcı bir kart seçecek.");
+            }
+            else
+            {
+                Debug.LogError("MenuManager.BuyBomb: deckCardsManager NULL! Inspector'dan bağla.");
             }
         }
 

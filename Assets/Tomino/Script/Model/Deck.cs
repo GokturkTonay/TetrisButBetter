@@ -11,12 +11,17 @@ namespace Tomino.Model
     {
         // Eski sistem (BalancedRandomPieceProvider uyumluluğu için)
         public Dictionary<PieceType, int> PieceCounts { get; private set; }
-        
+
         // Yeni sistem (Deste UI için parça + renk takibi)
         public List<(PieceType type, int colorIndex)> AvailablePieces { get; private set; }
-        
-        // Mağazadan alınan bombalar
-        public int BombCount { get; set; } = 0;
+
+        // Mağazadan alınan bombalar (hangi parçanın bomba olduğunu takip eder)
+        public List<(PieceType type, int colorIndex)> BombPieces { get; private set; } = new();
+
+        /// <summary>
+        /// Toplam bomba sayısı (BombPieces listesinin boyutu)
+        /// </summary>
+        public int BombCount => BombPieces.Count;
 
         public Deck()
         {
@@ -43,7 +48,7 @@ namespace Tomino.Model
 
             // Yeni sistem (type + color kombinasyonları)
             AvailablePieces = new List<(PieceType, int)>();
-            
+
             var pieceTypes = new[]
             {
                 PieceType.I, PieceType.J, PieceType.L, PieceType.O,
@@ -61,9 +66,9 @@ namespace Tomino.Model
         }
 
         /// <summary>
-        /// Toplam kalan parça sayısı (bombalar dahil)
+        /// Toplam kalan parça sayısı (normal + bomba parçalar)
         /// </summary>
-        public int TotalCount => AvailablePieces.Count + BombCount;
+        public int TotalCount => AvailablePieces.Count + BombPieces.Count;
 
         /// <summary>
         /// Belirli bir tür ve renkteki parçayı kaldır (yeni sistem için).
@@ -76,7 +81,7 @@ namespace Tomino.Model
             {
                 AvailablePieces.RemoveAt(indexToRemove);
             }
-            
+
             // Aynı zamanda Dictionary'den de azalt (eski sistem uyumluluğu)
             if (PieceCounts.ContainsKey(type) && PieceCounts[type] > 0)
             {
@@ -85,11 +90,27 @@ namespace Tomino.Model
         }
 
         /// <summary>
-        /// Belirli bir tür ve renkteki parçanın destede olup olmadığını kontrol et.
+        /// Belirli bir tür ve renkteki parçanın destede (normal) olup olmadığını kontrol et.
         /// </summary>
         public bool ContainsPiece(PieceType type, int colorIndex)
         {
             return AvailablePieces.Any(p => p.type == type && p.colorIndex == colorIndex);
+        }
+
+        /// <summary>
+        /// Belirli bir parçanın bomba olarak işaretlenip işaretlenmediğini kontrol et.
+        /// </summary>
+        public bool IsBombPiece(PieceType type, int colorIndex)
+        {
+            return BombPieces.Any(p => p.type == type && p.colorIndex == colorIndex);
+        }
+
+        /// <summary>
+        /// Parçanın destede olup olmadığını kontrol et (normal VEYA bomba).
+        /// </summary>
+        public bool ContainsPieceOrBomb(PieceType type, int colorIndex)
+        {
+            return ContainsPiece(type, colorIndex) || IsBombPiece(type, colorIndex);
         }
 
         /// <summary>
@@ -112,11 +133,35 @@ namespace Tomino.Model
         }
 
         /// <summary>
-        /// Desteden bomba çekilince sayıyı düş.
+        /// Belirli bir parçayı bombaya dönüştür.
+        /// AvailablePieces'tan çıkarır, BombPieces'a ekler.
+        /// Mağazadaki "Bomba Satın Al" akışında kullanılır.
+        /// </summary>
+        public bool ReplacePieceWithBomb(PieceType type, int colorIndex)
+        {
+            var index = AvailablePieces.FindIndex(p => p.type == type && p.colorIndex == colorIndex);
+            if (index < 0) return false;
+
+            // Normal listeden çıkar
+            AvailablePieces.RemoveAt(index);
+
+            // Bomba listesine ekle
+            BombPieces.Add((type, colorIndex));
+
+            // Eski sistem uyumluluğu: PieceCounts'tan da düş
+            if (PieceCounts.ContainsKey(type) && PieceCounts[type] > 0)
+                PieceCounts[type]--;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Desteden bomba çekilince BombPieces'tan bir tanesini kaldır.
         /// </summary>
         public void RemoveBomb()
         {
-            if (BombCount > 0) BombCount--;
+            if (BombPieces.Count > 0)
+                BombPieces.RemoveAt(BombPieces.Count - 1);
         }
 
         /// <summary>
@@ -125,7 +170,8 @@ namespace Tomino.Model
         public void Reset()
         {
             InitializeDeck();
-            // Bombayı sıfırlamıyoruz - mağazadan parayla alındı
+            // BombPieces'ı sıfırlamıyoruz - mağazadan parayla alındı
+            // BombPieces listesi korunur
         }
     }
 }
