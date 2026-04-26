@@ -74,54 +74,36 @@ namespace Tomino.View
             {
                 if (_colorRows[i] == null)
                 {
-                    Debug.LogError($"DeckCardsManager: colorRow_{i} NULL! Inspector'da set et!");
-                    return;
+                    Debug.LogError($"DeckCardsManager: colorRow_{i} NULL! Lütfen Inspector'da atayın.");
                 }
             }
-
-            Debug.Log("DeckCardsManager: Tüm ColorRow references kontrol edildi - OK");
-
-            // İlk olarak Deck'teki tüm parçalar için card oluştur
-            CreateCardsForAvailablePieces();
+            
+            // Başlangıçta desteyi temiz kurulumla yap
+            ResetDeckCards();
         }
 
         /// <summary>
-        /// Deck.AvailablePieces'teki her parça için card oluştur.
+        /// Deck.AvailablePieces'teki ve BombPieces'teki her parça için card oluştur.
         /// </summary>
         private void CreateCardsForAvailablePieces()
         {
             if (_board?.Deck?.AvailablePieces == null) 
             {
-                Debug.LogError("DeckCardsManager: Deck veya AvailablePieces NULL!");
+                Debug.LogWarning("DeckCardsManager: _board.Deck.AvailablePieces null, oluşturulmadı.");
                 return;
             }
 
-            Debug.Log($"DeckCardsManager: Deck'te {_board.Deck.AvailablePieces.Count} parça var");
-
-            // Önceki kartları temizle — sadece DeckPieceCard olanları sil,
-            // PivotRow gibi diğer child'lara dokunma.
-            _cardsByIdentifier.Clear();
-            foreach (Transform colorRow in _colorRows)
-            {
-                foreach (DeckPieceCard card in colorRow.GetComponentsInChildren<DeckPieceCard>(includeInactive: true))
-                {
-                    Destroy(card.gameObject);
-                }
-            }
-
-            // SIRALAMA: 4 Renk × 8 Piece Türü
             var pieceTypes = new[]
             {
                 PieceType.I, PieceType.J, PieceType.L, PieceType.O,
                 PieceType.S, PieceType.T, PieceType.Z, PieceType.Plus
             };
 
-            // ÖNEMLİ: Renk loop'u DÖŞ (dışarıda), Piece loop'u İÇER (içerde)
-            // Her renk için 8 piece'i kendi row'a ekle
+            // ÖNEMLİ: Renk loop'u Dışarıda, Piece loop'u İçerde
             for (int colorIndex = 0; colorIndex < 4; colorIndex++)
             {
                 Debug.Log($"DeckCardsManager: Renk {colorIndex} için kartlar oluşturuluyor");
-                
+
                 foreach (var pieceType in pieceTypes)
                 {
                     // Normal parçalar için kart oluştur
@@ -138,11 +120,17 @@ namespace Tomino.View
             }
 
             Debug.Log($"DeckCardsManager: {_cardsByIdentifier.Count} card başarıyla oluşturuldu.");
+            
+            // Fan efekti varsa güncelle
+            if (fanLayout != null)
+            {
+                fanLayout.ArrangeCards();
+            }
         }
 
         /// <summary>
         /// Belirli bir parça için card oluştur (doğru ColorRow'a ekle).
-        /// isBomb: true ise kartı bomba olarak işaretle.
+        /// Merkezi PieceDataList'ten deckIndex'i bulur ve set eder.
         /// </summary>
         private void CreateCardForPiece(PieceType pieceType, int colorIndex, bool isBomb = false)
         {
@@ -150,19 +138,19 @@ namespace Tomino.View
 
             // Zaten varsa, oluşturma
             if (_cardsByIdentifier.ContainsKey(identifier))
+            {
+                Debug.LogWarning($"DeckCardsManager: Card zaten var -> {pieceType} (Renk:{colorIndex}) ID:{identifier}");
                 return;
+            }
 
             // Doğru ColorRow'u seç
             Transform targetRow = _colorRows[colorIndex];
             
             if (targetRow == null)
             {
-                Debug.LogError($"DeckCardsManager: ColorRow_{colorIndex} NULL!");
+                Debug.LogError($"DeckCardsManager: Target row null for color {colorIndex}!");
                 return;
             }
-
-            // NOT: Kartlar doğrudan colorRow'a eklenir.
-            // PivotRow (LayoutElement.IgnoreLayout) ayrı durur, grid onu yok sayar.
 
             // Card GameObject oluştur
             GameObject cardGO = new GameObject($"Card_{pieceType}_{colorIndex}{(isBomb ? "_BOMB" : "")}");
@@ -181,6 +169,17 @@ namespace Tomino.View
             // Card'ı initialize et
             card.Initialize(pieceType, colorIndex, themeProvider);
 
+            // Merkezi listeden deckIndex'i bul
+            if (_board?.Deck?.PieceDataList != null)
+            {
+                var pieceData = _board.Deck.PieceDataList.FirstOrDefault(p => p.Type == pieceType && p.ColorIndex == colorIndex);
+                if (pieceData != null)
+                {
+                    card.deckIndex = pieceData.DeckIndex;
+                    Debug.Log($"DeckCardsManager.CreateCardForPiece: {pieceType} (Renk:{colorIndex}) = DeckIndex: {pieceData.DeckIndex}");
+                }
+            }
+
             // Bomba ise işaretle
             if (isBomb)
             {
@@ -190,22 +189,17 @@ namespace Tomino.View
             // Dictionary'ye ekle
             _cardsByIdentifier[identifier] = card;
 
-            Debug.Log($"Card oluşturuldu: {pieceType} Renk: {colorIndex} Bomba: {isBomb} -> ColorRow_{colorIndex}");
+            Debug.Log($"DeckCardsManager: OLUŞTURULDU -> {cardGO.name} @ Row_{colorIndex}");
         }
 
         /// <summary>
         /// Tüm kartları güncelle - Deck'te olmayan kartları sil, yenilik varsa oluştur.
-        /// Kullanılan kartlar opak, kullanılmayan normal gösterilir.
         /// </summary>
         public void RefreshAllCards()
         {
-            if (_board?.Deck == null) 
-            {
-                Debug.LogWarning("DeckCardsManager.RefreshAllCards: Deck NULL!");
-                return;
-            }
+            if (_board?.Deck == null) return;
 
-            Debug.Log($"DeckCardsManager.RefreshAllCards çağrıldı. Mevcut kartlar: {_cardsByIdentifier.Count}");
+            Debug.Log("DeckCardsManager.RefreshAllCards çalışıyor...");
 
             // 1. Destede (normal veya bomba) olmayan kartları SİL
             var cardsToRemove = new List<int>();
@@ -213,7 +207,7 @@ namespace Tomino.View
             {
                 if (!_board.Deck.ContainsPieceOrBomb(card.pieceType, card.colorIndex))
                 {
-                    Debug.Log($"Kart kaldırılıyor: {card.pieceType} Renk: {card.colorIndex}");
+                    Debug.Log($"Silinecek Kart Bulundu: {card.pieceType} Renk: {card.colorIndex}");
                     card.gameObject.SetActive(false);
                     Destroy(card.gameObject);
                     cardsToRemove.Add(identifier);
@@ -231,7 +225,7 @@ namespace Tomino.View
                 int identifier = GetIdentifier(pieceType, colorIndex);
                 if (!_cardsByIdentifier.ContainsKey(identifier))
                 {
-                    Debug.Log($"Yeni kart oluşturuluyor: {pieceType} Renk: {colorIndex}");
+                    Debug.Log($"Eksik normal kart oluşturuluyor: {pieceType} Renk: {colorIndex}");
                     CreateCardForPiece(pieceType, colorIndex, false);
                 }
             }
@@ -252,37 +246,37 @@ namespace Tomino.View
             {
                 if (card != null && card.gameObject != null)
                 {
-                    // Bomba mı kontrol et
+                    // Eğer bomba olduysa ve kart henüz bomba değilse bomba yap
                     bool isBombNow = _board.Deck.IsBombPiece(card.pieceType, card.colorIndex);
                     if (isBombNow && !card.isBomb)
                     {
+                        Debug.Log($"Kart BOMBAYA güncellendi: {card.pieceType} Renk: {card.colorIndex}");
                         card.MarkAsBomb();
                     }
 
                     bool isAvailable = _board.Deck.ContainsPieceOrBomb(card.pieceType, card.colorIndex);
                     card.UpdateDisplay(isAvailable);
 
-                    // Bomba görselini UpdateDisplay sonrası tekrar uygula (alpha değişmesini ezme)
                     if (card.isBomb)
-                        card.MarkAsBomb();
+                        card.MarkAsBomb(); // Bomba efektini uygula
 
                     card.gameObject.SetActive(true);
                 }
             }
-
-            Debug.Log($"Refresh tamamlandı. Son kartlar: {_cardsByIdentifier.Count}");
+            
+            if (fanLayout != null)
+            {
+                fanLayout.ArrangeCards();
+            }
         }
 
-        /// <summary>
-        /// (PieceType, ColorIndex) kombinasyonunun unique ID'sini döndür.
-        /// </summary>
         private int GetIdentifier(PieceType type, int colorIndex)
         {
             return ((int)type * 31) + colorIndex;
         }
 
         /// <summary>
-        /// Deste kartlarını reset et: PivotRow'u koru, içindeki kartları sil ve yeniden spawn et.
+        /// Deste kartlarını hiyerarşiden tamamen koparıp siler ve güncel desteye göre sıfırdan oluşturur.
         /// </summary>
         public void ResetDeckCards()
         {
@@ -291,109 +285,100 @@ namespace Tomino.View
             // 1. Dictionary temizle
             _cardsByIdentifier.Clear();
 
-            // 2. ColorRow'daki kartları sil (PivotRow ve diğer non-card objeler korunur)
+            // 2. Hiyerarşiden objeleri kopar ve sil 
             if (_colorRows != null)
             {
                 foreach (Transform colorRow in _colorRows)
                 {
                     if (colorRow == null) continue;
-                    foreach (DeckPieceCard card in colorRow.GetComponentsInChildren<DeckPieceCard>(includeInactive: true))
+                    
+                    // Eski UI objelerini tamamen sil ki üst üste binmesinler (Senin istediğin temiz hiyerarşi eklentisi)
+                    foreach (Transform child in colorRow)
                     {
-                        Destroy(card.gameObject);
+                        Destroy(child.gameObject);
                     }
                 }
             }
 
-            Debug.Log("DeckCardsManager.ResetDeckCards: Tüm kartlar silindi");
+            Debug.Log("DeckCardsManager.ResetDeckCards: Tüm eski objeler hiyerarşiden silindi.");
 
-            // 3. Yeni kartları spawn et
+            // 3. Mevcut Data'ya göre objeleri hiyerarşide sıfırdan var et
             CreateCardsForAvailablePieces();
 
-            Debug.Log("DeckCardsManager.ResetDeckCards: Deste reset tamamlandı!");
+            Debug.Log("DeckCardsManager.ResetDeckCards: Deste yeni objelerle başarıyla kuruldu!");
         }
 
         // ==========================================
         // BOMBA SEÇİM MODU
         // ==========================================
 
-        /// <summary>
-        /// Mağazadan "Bomba Satın Al" butonuna basıldığında çağrılır.
-        /// DeckPanel'i açar ve kartları tıklanabilir yapar.
-        /// </summary>
         public void EnterBombSelectionMode()
         {
-            Debug.Log("DeckCardsManager.EnterBombSelectionMode: Bomba seçim modu açılıyor...");
-
+            Debug.Log("DeckCardsManager: EnterBombSelectionMode çağrıldı.");
             _isBombSelectionMode = true;
 
-            // Paneli aç
             if (deckPanel != null)
                 deckPanel.SetActive(true);
 
-            // FULL REBUILD: Kartları sıfırdan oluştur (güncel deste durumunu yansıtsın)
+            // Seçim aşamasından önce hiyerarşiyi taze bir görünüme al
             ResetDeckCards();
 
             // Sadece normal (bomba OLMAYAN) kartlara tıklanabilirlik ekle
             foreach (var card in _cardsByIdentifier.Values)
             {
-                if (card != null && card.gameObject.activeInHierarchy && !card.isBomb)
-                    card.SetClickable(true, OnBombCardSelected);
+                if (card != null && card.gameObject.activeInHierarchy)
+                {
+                    if (!card.isBomb)
+                    {
+                        card.SetClickable(true, OnBombCardSelected);
+                    }
+                    else
+                    {
+                        // Bomba olanlara tıklanamaz
+                        card.SetClickable(false, null);
+                    }
+                }
             }
-
-            Debug.Log("DeckCardsManager.EnterBombSelectionMode: Kartlar tıklanabilir yapıldı.");
         }
 
-        /// <summary>
-        /// Bir kart seçildiğinde çağrılan callback.
-        /// Seçilen parçayı bombaya dönüştürür, UI'ı günceller ve paneli kapatır.
-        /// </summary>
         private void OnBombCardSelected(PieceType type, int colorIndex)
         {
-            if (_board?.Deck == null)
-            {
-                Debug.LogError("DeckCardsManager.OnBombCardSelected: Deck NULL!");
-                return;
-            }
+            Debug.Log($"DeckCardsManager.OnBombCardSelected: Bomba olarak seçildi -> {type} Renk: {colorIndex}");
+            if (_board?.Deck == null) return;
 
-            Debug.Log($"DeckCardsManager.OnBombCardSelected: {type} Renk:{colorIndex} seçildi → Bombaya dönüştürülüyor...");
-
+            // MERKEZI SİSTEM: ReplacePieceWithBomb çağrıldığında merkezi PieceDataList güncellenir
             bool success = _board.Deck.ReplacePieceWithBomb(type, colorIndex);
 
             if (success)
             {
-                Debug.Log($"Bomba dönüşümü başarılı! Yeni BombCount: {_board.Deck.BombCount}");
+                Debug.Log($"DeckCardsManager.OnBombCardSelected: Başarıyla bombaya dönüştürüldü!");
+                Debug.Log($"DeckCardsManager.OnBombCardSelected: PieceDataList artık güncellendi. " +
+                          $"BalancedRandomPieceProvider sıradaki taşı yeniden seçecek.");
+                
+                // Dönüşüm bittikten sonra hiyerarşideki kartları sıfırdan yarat (Görseli tamamen günceller)
+                ResetDeckCards();
+                ExitBombSelectionMode();
             }
             else
             {
-                Debug.LogWarning($"DeckCardsManager.OnBombCardSelected: {type} Renk:{colorIndex} destede bulunamadı!");
+                Debug.LogError($"DeckCardsManager.OnBombCardSelected: Dönüştürme başarısız!");
             }
-
-            // Kartları sıfırdan oluştur (bomba görselini yansıtsın)
-            ResetDeckCards();
-            ExitBombSelectionMode();
         }
 
-        /// <summary>
-        /// Bomba seçim modundan çık. Kartları normal moda döndür ve paneli kapat.
-        /// </summary>
         public void ExitBombSelectionMode()
         {
-            Debug.Log("DeckCardsManager.ExitBombSelectionMode: Bomba seçim modu kapatılıyor...");
-
+            Debug.Log("DeckCardsManager: ExitBombSelectionMode çağrıldı.");
             _isBombSelectionMode = false;
 
-            // Tüm kartlardan tıklanabilirliği kaldır
+            // Tüm kartların tıklanabilirliğini kaldır
             foreach (var card in _cardsByIdentifier.Values)
             {
                 if (card != null)
                     card.SetClickable(false, null);
             }
 
-            // Paneli kapat
             if (deckPanel != null)
                 deckPanel.SetActive(false);
-
-            Debug.Log("DeckCardsManager.ExitBombSelectionMode: Panel kapatıldı.");
         }
     }
 }

@@ -42,6 +42,17 @@ namespace Tomino.View
             ApplyRowFan(colorRow_3, rowPivot_3);
         }
 
+        /// <summary>
+        /// Tüm kartları fan düzeninde hemen düzenle.
+        /// </summary>
+        public void ArrangeCards()
+        {
+            ApplyRowFan(colorRow_0, rowPivot_0);
+            ApplyRowFan(colorRow_1, rowPivot_1);
+            ApplyRowFan(colorRow_2, rowPivot_2);
+            ApplyRowFan(colorRow_3, rowPivot_3);
+        }
+
         private void ApplyRowFan(Transform row, Transform pivot)
         {
             if (row == null || pivot == null) return;

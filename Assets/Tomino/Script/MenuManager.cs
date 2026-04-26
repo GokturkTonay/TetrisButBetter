@@ -32,15 +32,13 @@ namespace Tomino
 
             if (game.Score.Value >= currentTarget)
             {
-                game.Pause();
+                game.Pause(); // Skor sağlandığında oyunu durdur
                 StartCoroutine(ShowWinSequence());
             }
         }
 
-        // CS1061 Hatasını Çözen Metot: Çarpan hesaplama ve ekranda gösterme sekansı
         public IEnumerator CalculateMultiplierSequence(Game game, int rowsCount)
         {
-            // ÖNLEYİCİ: Eğer oyun zaten durduysa veya rowsCount saçma bir rakamsa çık
             if (rowsCount <= 0)
             {
                 if (game != null) { game.Resume(); }
@@ -51,7 +49,6 @@ namespace Tomino
             int carpan = rowsCount;
             int kazanilanPuan = basePuan * carpan;
 
-            // Puanı SADECE BİR KEZ ekle (Döngüye girmesin)
             game.Score.Value += kazanilanPuan;
 
             if (multiplierText != null)
@@ -60,17 +57,17 @@ namespace Tomino
                 multiplierText.text = $"{basePuan} x {carpan}\n+ {kazanilanPuan}!";
             }
 
-            // Animasyon beklerken Update'in şişmesini engellemek için kısa tut
             yield return new WaitForSecondsRealtime(0.5f);
 
             if (multiplierText != null) multiplierText.gameObject.SetActive(false);
 
-            // DİKKAT: Burada CheckScoreAndTransition çağırırken dikkatli ol!
-            // Eğer o fonksiyon içinde tekrar coroutine başlatıyorsan RAM patlar.
             CheckScoreAndTransition(game, game.Level.TargetScore);
 
-            game.Resume();
-            // AddPiece() BURADAN KALKADı - SafeBombSequence veya HandleNormalRowClear'da çağrılacak
+            // MİNİMAL EKLEME: Eğer bölüm hedefini GEÇTİYSEK, arkada oyunu devam (Resume) ETTİRME!
+            if (game.Score.Value < levelTargetScores[_currentLevelIndex])
+            {
+                game.Resume();
+            }
         }
 
         private IEnumerator ShowWinSequence()
@@ -79,11 +76,17 @@ namespace Tomino
             yield return new WaitForSeconds(2f);
             if (youWonPanel != null) youWonPanel.SetActive(false);
 
-            // Deste kartlarını reset et (ColorRow'daki objeleri sil ve yeniden spawn et)
+            // Mağazaya girmeden önce arka plandaki desteyi sıfırla!
+            if (levelView != null && levelView.board != null)
+            {
+                levelView.board.ResetDeck();
+            }
+
+            // Deste kartlarını reset et (ColorRow'daki objeleri sil ve güncel desteden yeniden spawn et)
             if (deckCardsManager != null)
             {
                 deckCardsManager.ResetDeckCards();
-                Debug.Log("MenuManager.ShowWinSequence: Deste kartları reset edildi!");
+                Debug.Log("MenuManager.ShowWinSequence: Deste kartları güncellendi!");
             }
             else
             {

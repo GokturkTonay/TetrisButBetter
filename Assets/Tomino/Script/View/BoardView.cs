@@ -30,6 +30,9 @@ namespace Tomino.View
             _blockViewPool = new GameObjectPool<BlockView>(blockPrefab, board.width * board.height + 20, gameObject);
             _forceRender = true;
             
+            // Merkezi Deck durumunu göster
+            _gameBoard?.Deck?.LogDeckStatus();
+            
             // ÖNEMLİ: DeckUIView ve DeckCardsManager ayrı tutulur
             // DeckUIView deaktif, sadece DeckCardsManager kullanılır
             Debug.Log("BoardView.SetBoard: Board kuruldu. DeckUIView deaktif, sadece DeckCardsManager aktif.");

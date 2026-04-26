@@ -15,6 +15,7 @@ namespace Tomino.View
         public PieceType pieceType;
         public int colorIndex;
         public bool isBomb = false;
+        public int deckIndex = -1; // Merkezi PieceDataList'te bu kartın indeksi
 
         private ThemeProvider _themeProvider;
         private List<Image> _blockImages = new();
