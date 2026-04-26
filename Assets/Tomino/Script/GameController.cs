@@ -73,7 +73,7 @@ namespace Tomino
             gameConfig.boardView.deckCardsManager = gameConfig.deckCardsManager;
             
             // Board'u View'lara set et
-            gameConfig.boardView.SetBoard(board);
+            gameConfig.boardView.SetBoard(board, gameConfig.pieceProvider);
             gameConfig.nextPieceView.SetBoard(board);
             
             // DeckCardsManager'ı initialize et

@@ -79,14 +79,9 @@ namespace Tomino.Model
             // Eski sistem (type sayıları)
             PieceCounts = new Dictionary<PieceType, int>
             {
-                { PieceType.I, 4 },
-                { PieceType.J, 4 },
-                { PieceType.L, 4 },
-                { PieceType.O, 4 },
-                { PieceType.S, 4 },
-                { PieceType.T, 4 },
-                { PieceType.Z, 4 },
-                { PieceType.Plus, 1 }
+                { PieceType.I, 4 }, { PieceType.J, 4 }, { PieceType.L, 4 },
+                { PieceType.O, 4 }, { PieceType.S, 4 }, { PieceType.T, 4 },
+                { PieceType.Z, 4 }, { PieceType.Plus, 4 } // Her türden 4 renk = 32 parça
             };
 
             // Yeni sistem (type + color kombinasyonları) - PieceDataList'ten türetilir
@@ -115,6 +110,30 @@ namespace Tomino.Model
 
             UnityEngine.Debug.Log($"Deck.InitializeDeck: PieceDataList {PieceDataList.Count} parça ile başlatıldı. " +
                                   $"Normal: {AvailablePieces.Count}, Bomba: {BombPieces.Count}");
+        }
+
+        public (PieceType type, int colorIndex, bool isBomb)? DrawSpecificPiece()
+        {
+            // Deste boşsa null döner
+            if (AvailablePieces.Count == 0 && BombPieces.Count == 0) return null;
+
+            int total = AvailablePieces.Count + BombPieces.Count;
+            int randomIndex = UnityEngine.Random.Range(0, total);
+
+            if (randomIndex < AvailablePieces.Count)
+            {
+                var picked = AvailablePieces[randomIndex];
+                AvailablePieces.RemoveAt(randomIndex); // Listeden sil ki bir daha gelmesin (T sarı çiftleme sorunu çözümü)
+                if (PieceCounts.ContainsKey(picked.type)) PieceCounts[picked.type]--;
+                return (picked.type, picked.colorIndex, false);
+            }
+            else
+            {
+                int bombIdx = randomIndex - AvailablePieces.Count;
+                var picked = BombPieces[bombIdx];
+                BombPieces.RemoveAt(bombIdx); // Bombayı kullandık, listeden sildik.
+                return (picked.type, picked.colorIndex, true);
+            }
         }
 
         /// <summary>

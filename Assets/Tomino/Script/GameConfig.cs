@@ -1,3 +1,4 @@
+using Tomino.Model;
 using Tomino.View;
 using UnityEngine;
 
@@ -11,5 +12,6 @@ namespace Tomino
         public LevelView levelView;
         public Tomino.View.DeckUIView deckUIView;
         public Tomino.View.DeckCardsManager deckCardsManager;
+        public IPieceProvider pieceProvider;
     }
 }

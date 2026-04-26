@@ -17,6 +17,9 @@ namespace Tomino.View
         public DeckUIView deckUIView;
         public DeckCardsManager deckCardsManager;
 
+        public PieceView nextPieceView; 
+        private IPieceProvider _pieceProvider; // Provider'a erişmek için
+
         private Board _gameBoard;
         private int _renderedBoardHash = -1;
         private bool _forceRender;
@@ -24,18 +27,15 @@ namespace Tomino.View
         private RectTransform _rectTransform;
         private int _deckStateHash = -1;
 
-        public void SetBoard(Board board)
+        public void SetBoard(Board board, IPieceProvider provider) // provider parametresi eklendi
         {
             _gameBoard = board;
+            _pieceProvider = provider; // Provider'ı kaydet
             _blockViewPool = new GameObjectPool<BlockView>(blockPrefab, board.width * board.height + 20, gameObject);
             _forceRender = true;
             
-            // Merkezi Deck durumunu göster
             _gameBoard?.Deck?.LogDeckStatus();
-            
-            // ÖNEMLİ: DeckUIView ve DeckCardsManager ayrı tutulur
-            // DeckUIView deaktif, sadece DeckCardsManager kullanılır
-            Debug.Log("BoardView.SetBoard: Board kuruldu. DeckUIView deaktif, sadece DeckCardsManager aktif.");
+            Debug.Log("BoardView.SetBoard: Board ve Provider kuruldu.");
         }
 
         internal void Update()

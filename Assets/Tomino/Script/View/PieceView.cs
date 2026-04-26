@@ -19,7 +19,64 @@ namespace Tomino.View
         private const int BlockPoolSize = 10;
         private bool _forceRender;
 
-        private void Awake() => Settings.changedEvent += () => _forceRender = true;
+        private void Awake() 
+        { 
+            // UI koordinatlarını ve boyutlarını hesaplamak için gerekli olan bileşeni alıyoruz
+            container = GetComponent<RectTransform>(); 
+
+            // Ayarlar değiştiğinde Board'un yeniden çizilmesini sağlayan olay aboneliği
+            Settings.changedEvent += () => _forceRender = true; 
+
+            _blockViewPool = new GameObjectPool<BlockView>(blockPrefab, 10, gameObject);
+        }
+
+        public void SetPiece(Piece piece)
+        {
+            // Önce eski blokları temizle
+            if (_blockViewPool != null)
+                _blockViewPool.DeactivateAll();
+
+            if (piece == null || themeProvider == null || themeProvider.currentTheme == null)
+                return;
+
+            float size = BlockSize();
+
+            foreach (var pos in piece.GetPositions().Values)
+            {
+                var view = _blockViewPool.GetAndActivate();
+                
+                // Temadan parçaya uygun sprite'ı çek
+                Sprite sprite = themeProvider.currentTheme.GetBlockSprite(piece.Type, piece.ColorIndex) ?? blockSprite;
+                view.SetSprite(sprite);
+                view.SetSize(size);
+                
+                // Parça bombaysa siyah yap
+                view.SetColor(piece.IsBomb ? Color.black : Color.white);
+
+                // Pozisyonu hesapla ve yerleştir
+                view.SetPosition(CalculateBlockPosition(pos.Row, pos.Column));
+            }
+        }
+
+        private float BlockSize()
+        {
+            // Önizleme kutusunu 4 birim genişlikte varsayarak boyutu hesaplıyoruz
+            return container != null ? container.rect.size.x / 4f : 0.1f;
+        }
+
+        private Vector3 CalculateBlockPosition(int r, int c)
+        {
+            float size = BlockSize();
+            // Parçayı kutunun içinde ortalamak için (0,0) noktasından offset ekliyoruz
+            // BoardView'deki mantığın sadeleşmiş hali
+            return new Vector3((c + 0.5f) * size, (r + 0.5f) * size, 0) - PivotOffset();
+        }
+
+        private Vector3 PivotOffset()
+        {
+            return new Vector3(container.rect.size.x * container.pivot.x, 
+                               container.rect.size.y * container.pivot.y);
+        }
 
         public void SetBoard(Board board)
         {

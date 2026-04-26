@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Tomino.Model;
 using Tomino.Shared;
 
@@ -9,6 +10,8 @@ namespace Tomino.Model
     {
         private readonly Random _random = new();
         private readonly Deck _deck;
+
+        private (PieceType type, int colorIndex, bool isBomb)? _queuedPiece;
 
         // YENİ: Sıradaki taşın indeksi (merkezi PieceDataList'ten)
         private int _nextPieceIndex = -1;
@@ -66,68 +69,41 @@ namespace Tomino.Model
 
         public Piece GetPiece()
         {
-            if (_deck?.PieceDataList == null || _deck.PieceDataList.Count == 0)
-            {
-                UnityEngine.Debug.Log("BalancedRandomPieceProvider.GetPiece: PieceDataList boş, parça üretilemiyor.");
-                return null;
-            }
+            // Hafızada (Next Piece olarak gösterilen) parça varsa onu al, yoksa yeni çek
+            var data = _queuedPiece ?? _deck.DrawSpecificPiece();
+            
+            // Hafızayı temizle ki bir sonraki 'Next Piece' yeni parça çekebilsin
+            _queuedPiece = null; 
 
-            // Eğer sıradaki taş indeksi geçersiz ise, yeni bir tane seç
-            if (_nextPieceIndex < 0 || _nextPieceIndex >= _deck.PieceDataList.Count)
-            {
-                RefreshNextPieceIndex();
-            }
-
-            if (_nextPieceIndex < 0)
-                return null;
-
-            // Merkezi listeden seçilen PieceData'yı al (KÖŞELİ ALINMADIĞINI, SADECE OKU)
-            PieceData selectedData = _deck.PieceDataList[_nextPieceIndex];
-
-            UnityEngine.Debug.Log($"BalancedRandomPieceProvider.GetPiece: SEÇIM YAPILDI" +
-                                  $" Index:{_nextPieceIndex} -> {selectedData}");
-
-            // Yeni Piece nesnesi oluştur (Block'lar paylaşılmasın diye)
-            Piece standardPiece = AvailablePieces.All()[(int)selectedData.Type];
-            Piece pieceToReturn = new Piece(standardPiece.GetPositions().Values, selectedData.Type, standardPiece.canRotate);
-
-            // Parçanın rengini merkezi veriden al
-            pieceToReturn.ColorIndex = selectedData.ColorIndex;
-
-            // Parçanın bomba durumunu merkezi veriden al
-            pieceToReturn.IsBomb = selectedData.IsBomb;
-
-            UnityEngine.Debug.Log($"BalancedRandomPieceProvider.GetPiece: Döndürülen Piece" +
-                                  $" Type:{selectedData.Type} Color:{selectedData.ColorIndex} IsBomb:{pieceToReturn.IsBomb}");
-
-            // Sıradaki taşı seçme işlemi SONRASINDA indeksi güncelle
-            RefreshNextPieceIndex();
-
-            return pieceToReturn;
+            return CreatePieceFromTuple(data);
         }
 
         public Piece GetNextPiece()
         {
-            if (_deck?.PieceDataList == null || _deck.PieceDataList.Count == 0)
-                return null;
-
-            // Eğer sıradaki taş indeksi geçersiz ise
-            if (_nextPieceIndex < 0 || _nextPieceIndex >= _deck.PieceDataList.Count)
+            // Eğer hafıza boşsa (parça yeni düştüyse) desteden sıradakini belirle
+            if (_queuedPiece == null)
             {
-                return null;
+                _queuedPiece = _deck.DrawSpecificPiece();
             }
+            
+            // Belirlenen parçayı sadece görüntüle (desteden silme, hafızada tut)
+            return CreatePieceFromTuple(_queuedPiece);
+        }
 
-            // Sıradaki PieceData'yı al (ÇIKARMADAN, sadece göster)
-            PieceData nextData = _deck.PieceDataList[_nextPieceIndex];
+        private Piece CreatePieceFromTuple((PieceType type, int colorIndex, bool isBomb)? tuple)
+        {
+            if (tuple == null) return null;
 
-            Piece standardPiece = AvailablePieces.All()[(int)nextData.Type];
-            var nextPiece = new Piece(standardPiece.GetPositions().Values, nextData.Type, standardPiece.canRotate);
+            Piece template = AvailablePieces.All().FirstOrDefault(p => p.Type == tuple.Value.type);
+            if (template == null) return null;
 
-            // Rengini ve bomba durumunu merkezi veriden al
-            nextPiece.ColorIndex = nextData.ColorIndex;
-            nextPiece.IsBomb = nextData.IsBomb;
+            // ÖNEMLİ: Şablonun pozisyonlarını ToList() ile kopyalayıp YENİ bir Piece nesnesi üretiyoruz.
+            // Bu sayede şablonun kendisi (AvailablePieces.All içindeki) değişmiyor.
+            Piece piece = new Piece(template.GetPositions().Values.ToList(), template.Type, template.canRotate);
+            piece.ColorIndex = tuple.Value.colorIndex;
+            piece.IsBomb = tuple.Value.isBomb;
 
-            return nextPiece;
+            return piece;
         }
 
         public void Reset()
